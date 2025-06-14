@@ -54,12 +54,17 @@ const ensureBucketExists = async () => {
 // Test the connection
 const testConnection = async () => {
   try {
+    // Create a very small transparent PNG buffer
+    const transparentPngBuffer = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+      'base64'
+    );
+
     // Try to upload a test file
-    const testBuffer = Buffer.from('test');
     const { data, error } = await supabase.storage
       .from('images')
-      .upload('test.txt', testBuffer, {
-        contentType: 'text/plain',
+      .upload('test.png', transparentPngBuffer, {
+        contentType: 'image/png',
         upsert: true
       });
 
@@ -71,7 +76,7 @@ const testConnection = async () => {
     // If upload successful, try to delete the test file
     await supabase.storage
       .from('images')
-      .remove(['test.txt']);
+      .remove(['test.png']);
 
     console.log('Supabase connection test successful');
     return true;
