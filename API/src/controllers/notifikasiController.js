@@ -1,33 +1,20 @@
 const pool = require('../config/database');
 const axios = require('axios');
-const { db } = require('../config/db'); // Assuming you have your database connection exported as 'db'
 
 // Fungsi untuk mendapatkan semua notifikasi
 exports.getAllNotifications = async (req, res) => {
   try {
-    const { created_after } = req.query; // Get the created_after query parameter
-
-    let query = db.from('notifikasi').select('*');
-
-    if (created_after) {
-      // Filter notifications created after the specified date
-      query = query.where('created_at', '>=', created_after);
-    }
-
-    // You might also want to order the notifications, e.g., by creation date descending
-    query = query.order('created_at', { ascending: false });
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error('Error fetching notifications:', error.message);
-      return res.status(500).json({ status: 'error', message: 'Gagal mengambil notifikasi.' });
-    }
-
-    return res.status(200).json({ status: 'success', data: data });
+    const result = await pool.query('SELECT * FROM sigab_app."notifikasi" ORDER BY created_at DESC');
+    res.status(200).json({
+      status: 'success',
+      data: result.rows
+    });
   } catch (error) {
-    console.error('Error in getAllNotifications:', error.message);
-    return res.status(500).json({ status: 'error', message: 'Terjadi kesalahan server.' });
+    console.error('Error while fetching notifications:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Terjadi kesalahan saat mengambil data notifikasi'
+    });
   }
 };
 
@@ -72,7 +59,8 @@ exports.checkFloodReports = async (req, res) => {
 // Fungsi untuk mendapatkan riwayat notifikasi
 exports.getNotificationHistory = async (req, res) => {
   try {
-    const { created_after, installed_at } = req.query;
+    // Mengambil tanggal instalasi (timestamp penuh) dari query parameter
+    const { installed_at } = req.query;
     
     if (!installed_at) {
       return res.status(400).json({
@@ -81,21 +69,15 @@ exports.getNotificationHistory = async (req, res) => {
       });
     }
 
-    let query = `
-      SELECT *
-      FROM sigab_app.notifikasi
-      WHERE created_at >= $1::timestamp with time zone
-    `;
-    const params = [installed_at];
-
-    if (created_after) {
-      query += ` AND created_at >= $2::timestamp with time zone`;
-      params.push(created_after);
-    }
-
-    query += ` ORDER BY created_at DESC LIMIT 50`;
-
-    const result = await pool.query(query, params);
+    // Query untuk mendapatkan notifikasi yang dibuat setelah timestamp instalasi
+    const result = await pool.query(
+      `SELECT *
+       FROM sigab_app.notifikasi
+       WHERE created_at >= $1::timestamp with time zone
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [installed_at]
+    );
 
     res.status(200).json({
       status: 'success',
