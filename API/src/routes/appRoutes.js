@@ -142,6 +142,9 @@ router.get('/tempat-evakuasi', tempatEvakuasiController.getAllEvacuationPlaces);
 // Endpoint untuk mengambil semua riwayat banjir
 router.get('/riwayat-banjir', riwayatBanjirController.getAllFloodHistory);
 
+// Endpoint untuk mendapatkan detail riwayat banjir berdasarkan ID
+router.get('/riwayat-banjir/:id', riwayatBanjirController.getFloodHistoryById);
+
 // Endpoint untuk mengambil semua notifikasi
 router.get('/notifikasi', notifikasiController.getAllNotifications);
 
