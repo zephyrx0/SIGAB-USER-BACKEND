@@ -1,15 +1,25 @@
 // src/controllers/weatherController.js
 
 const axios = require('axios');
+const NodeCache = require('node-cache');
+const cache = new NodeCache({ stdTTL: 300 }); // cache 5 menit
 
 // Controller to fetch weather data
 exports.getWeather = async (req, res) => {
+    const cacheKey = 'cuaca-bmkg';
+    const cached = cache.get(cacheKey);
+    if (cached) {
+        return res.json(cached);
+    }
     try {
         // BMKG API URL
         const url = 'https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=32.04.12.2006';
 
         // Make a GET request to the BMKG API using Axios
         const response = await axios.get(url);
+
+        // Cache the response data
+        cache.set(cacheKey, response.data);
 
         // Send the response data from BMKG API to the client
         res.json(response.data);

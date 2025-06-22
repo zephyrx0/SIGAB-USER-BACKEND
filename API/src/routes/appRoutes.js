@@ -133,6 +133,9 @@ router.post('/laporan', verifyToken, upload.single('foto'), uploadToSupabase, la
 // Endpoint untuk mengambil semua tips mitigasi
 router.get('/tips-mitigasi', tipsMitigasiController.getAllMitigationTips);
 
+// Endpoint untuk mendapatkan detail tips mitigasi berdasarkan ID
+router.get('/tips-mitigasi/:id', tipsMitigasiController.getMitigationTipById);
+
 // Endpoint untuk mengambil semua informasi banjir
 router.get('/informasi-banjir', informasiBanjirController.getAllFloodInfo);
 
