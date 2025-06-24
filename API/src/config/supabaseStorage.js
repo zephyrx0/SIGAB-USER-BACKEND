@@ -5,6 +5,19 @@ require('dotenv').config();
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 
+// Add detailed logging
+console.log('Attempting to connect to Supabase with:');
+console.log('URL:', supabaseUrl);
+console.log('Key exists:', !!supabaseKey);
+console.log('Key length:', supabaseKey ? supabaseKey.length : 0);
+
+// Validate URL format
+if (!supabaseUrl || !supabaseUrl.startsWith('https://') || !supabaseUrl.endsWith('.co')) {
+  console.error('Invalid Supabase URL format. URL should start with https:// and end with .co');
+  console.error('Current URL:', supabaseUrl);
+  process.exit(1);
+}
+
 if (!supabaseUrl || !supabaseKey) {
   console.error('Supabase URL and service key must be provided in environment variables');
   process.exit(1);
@@ -19,6 +32,30 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false
+  },
+  // Add fetch configuration
+  fetch: (url, options) => {
+    const timeout = 30000; // 30 seconds timeout
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Request timed out')), timeout);
+      fetch(url, {
+        ...options,
+        // Add DNS configuration
+        headers: {
+          ...options.headers,
+          'Accept-Encoding': 'gzip, deflate, br',
+        }
+      })
+        .then(response => {
+          clearTimeout(timer);
+          resolve(response);
+        })
+        .catch(error => {
+          clearTimeout(timer);
+          console.error('Fetch error:', error);
+          reject(error);
+        });
+    });
   }
 });
 

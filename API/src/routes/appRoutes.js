@@ -37,6 +37,7 @@ const upload = multer({
 // Middleware untuk upload ke Supabase
 const uploadToSupabase = async (req, res, next) => {
   if (!req.file) {
+    console.log('No file provided in request');
     return next();
   }
 
@@ -55,6 +56,16 @@ const uploadToSupabase = async (req, res, next) => {
       });
     }
 
+    // Log detail file dan koneksi
+    console.log('File details:', {
+      name: fileName,
+      path: filePath,
+      size: file.size,
+      type: file.mimetype
+    });
+
+    console.log('Attempting Supabase connection...');
+    
     // Tentukan content type berdasarkan ekstensi file
     let contentType;
     switch (fileExt) {
@@ -72,43 +83,58 @@ const uploadToSupabase = async (req, res, next) => {
         });
     }
 
-    console.log('Uploading file:', {
-      originalName: file.originalname,
-      mimeType: file.mimetype,
-      size: file.size,
-      contentType: contentType
-    });
+    // Upload ke Supabase dengan retry logic
+    let retries = 3;
+    let lastError = null;
+    
+    while (retries > 0) {
+      try {
+        console.log(`Upload attempt ${4 - retries}/3...`);
+        
+        const { data, error } = await supabase.storage
+          .from('images')
+          .upload(filePath, file.buffer, {
+            contentType: contentType,
+            upsert: true,
+            duplex: 'half'
+          });
 
-    // Upload ke Supabase Storage dengan content type yang benar
-    const { data, error } = await supabase.storage
-      .from('images')
-      .upload(filePath, file.buffer, {
-        contentType: contentType,
-        upsert: true
-      });
+        if (error) {
+          throw error;
+        }
 
-    if (error) {
-      console.error('Upload error:', error);
-      return res.status(500).json({
-        status: 'error',
-        message: 'Gagal mengupload foto: ' + error.message
-      });
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from('images')
+          .getPublicUrl(filePath);
+
+        // Simpan URL ke request
+        req.file.publicUrl = urlData.publicUrl;
+        console.log('File uploaded successfully. Public URL:', urlData.publicUrl);
+        return next();
+      } catch (error) {
+        lastError = error;
+        console.error(`Upload attempt ${4 - retries}/3 failed:`, error);
+        retries--;
+        if (retries > 0) {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+        }
+      }
     }
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from('images')
-      .getPublicUrl(filePath);
+    // If all retries failed
+    console.error('All upload attempts failed. Last error:', lastError);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal mengupload foto setelah beberapa percobaan: ' + lastError.message
+    });
 
-    // Simpan URL ke request
-    req.file.publicUrl = urlData.publicUrl;
-    console.log('File uploaded successfully. Public URL:', urlData.publicUrl);
-    next();
   } catch (error) {
-    console.error('Error uploading to Supabase:', error);
+    console.error('Error in upload middleware:', error);
     res.status(500).json({
       status: 'error',
-      message: 'Terjadi kesalahan saat mengupload file: ' + error.message
+      message: 'Terjadi kesalahan saat mengupload file: ' + error.message,
+      details: error.stack
     });
   }
 };
