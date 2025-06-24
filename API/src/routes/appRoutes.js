@@ -186,12 +186,6 @@ router.get('/notification-history', notifikasiController.getNotificationHistory)
 
 router.get('/cuaca',informasiCuacaController.getWeather);
 
-// Endpoint untuk mengupdate status laporan
-router.put('/laporan/:id_laporan/status', laporanController.updateReportStatus);
-
-// Logout route sudah dipindahkan ke userRoutes
-// router.post('/logout', userController.logoutUser);
-
 router.get('/latest-flood-info', informasiBanjirController.getLatestFloodInfo);
 
 module.exports = router;

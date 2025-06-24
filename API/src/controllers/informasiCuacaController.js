@@ -2,7 +2,7 @@
 
 const axios = require('axios');
 const NodeCache = require('node-cache');
-const cache = new NodeCache({ stdTTL: 300 }); // cache 5 menit
+const cache = new NodeCache({ stdTTL: 600 }); // cache 10 menit
 
 // Controller to fetch weather data
 exports.getWeather = async (req, res) => {

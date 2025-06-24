@@ -3,116 +3,40 @@ const pool = require('../config/database');
 // Fungsi untuk membuat laporan baru
 exports.createReport = async (req, res) => {
   try {
-    const id_user = req.body.id_user;
-    const tipe_laporan = req.body.tipe_laporan;
-    const lokasi = req.body.lokasi; // Nama lokasi seperti "Masjid An-Nur"
-    const titik_lokasi = req.body.titik_lokasi; // Bentuk string: "(107.61,-6.982)"
-    const waktu = req.body.waktu;
-    const deskripsi = req.body.deskripsi;
-    const status = req.body.status;
-    
-    // Handle foto URL
-    let foto = null;
-    
-    // Validasi foto
-    if (!req.file && !req.body.foto) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Foto wajib diunggah'
-      });
+    // Validasi field wajib lebih awal
+    const requiredFields = ['id_user', 'tipe_laporan', 'waktu', 'deskripsi', 'lokasi', 'titik_lokasi'];
+    for (const field of requiredFields) {
+      if (!req.body[field] || req.body[field].toString().trim() === '') {
+        return res.status(400).json({ status: 'error', message: `Field '${field}' wajib diisi` });
+      }
     }
 
-    if (req.file && req.file.publicUrl) {
-      foto = req.file.publicUrl;
-      console.log('Using uploaded file URL:', foto);
-    } else if (req.body.foto) {
-      foto = req.body.foto;
-      console.log('Using provided foto URL:', foto);
+    // Validasi foto
+    if (!req.file && !req.body.foto) {
+      return res.status(400).json({ status: 'error', message: 'Foto wajib diunggah' });
     }
 
     // Validasi format foto URL jika menggunakan URL
     if (req.body.foto && !req.file) {
-      try {
-        new URL(req.body.foto);
-      } catch (error) {
-        return res.status(400).json({
-          status: 'error',
-          message: 'Format URL foto tidak valid'
-        });
+      try { new URL(req.body.foto); } catch {
+        return res.status(400).json({ status: 'error', message: 'Format URL foto tidak valid' });
       }
     }
 
-    console.log('Received data:', {
-      id_user,
-      tipe_laporan,
-      lokasi,
-      titik_lokasi,
-      waktu,
-      deskripsi,
-      status,
-      foto,
-      file: req.file ? {
-        originalname: req.file.originalname,
-        mimetype: req.file.mimetype,
-        size: req.file.size
-      } : 'No file'
-    });
-
-    const requiredFields = {
-      id_user,
-      tipe_laporan,
-      waktu,
-      deskripsi,
-      lokasi,
-      titik_lokasi
-    };
-
-    // Log validation results
-    console.log('Validating required fields:');
-    for (const [key, value] of Object.entries(requiredFields)) {
-      console.log(`${key}: ${value ? 'valid' : 'missing'}`);
-      if (!value || value.toString().trim() === '') {
-        return res.status(400).json({
-          status: 'error',
-          message: `Field '${key}' wajib diisi`
-        });
-      }
-    }
-
-    // Validasi user
-    const userCheck = await pool.query('SELECT 1 FROM sigab_app.user_app WHERE id_user = $1', [id_user]);
-    console.log('User validation:', userCheck.rowCount > 0 ? 'valid' : 'not found');
+    // Validasi user (bisa pakai cache jika perlu)
+    const userCheck = await pool.query('SELECT 1 FROM sigab_app.user_app WHERE id_user = $1', [req.body.id_user]);
     if (userCheck.rowCount === 0) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'User dengan ID tersebut tidak ditemukan'
-      });
+      return res.status(400).json({ status: 'error', message: 'User dengan ID tersebut tidak ditemukan' });
     }
 
-    // Validasi titik format (opsional)
-    if (titik_lokasi) {
-      const match = titik_lokasi.match(/^\((-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)\)$/);
-      console.log('Coordinate validation:', match ? 'valid' : 'invalid');
-      if (!match) {
-        return res.status(400).json({
-          status: 'error',
-          message: 'Format koordinat tidak valid. Gunakan format "(longitude,latitude)"'
-        });
-      }
+    // Validasi titik_lokasi
+    if (!/^\((-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)\)$/.test(req.body.titik_lokasi)) {
+      return res.status(400).json({ status: 'error', message: 'Format koordinat tidak valid. Gunakan format \"(longitude,latitude)\"' });
     }
 
     // Insert laporan
-    console.log('Attempting to insert report with values:', {
-      id_user,
-      tipe_laporan,
-      waktu,
-      deskripsi,
-      status,
-      foto,
-      lokasi,
-      titik_lokasi
-    });
-
+    const foto = req.file?.publicUrl || req.body.foto;
+    const { id_user, tipe_laporan, waktu, deskripsi, status, lokasi, titik_lokasi } = req.body;
     const result = await pool.query(
       `INSERT INTO sigab_app.laporan 
       (id_user, tipe_laporan, waktu, deskripsi, status, foto, created_at, updated_at, lokasi, titik_lokasi) 
@@ -121,22 +45,15 @@ exports.createReport = async (req, res) => {
       [id_user, tipe_laporan, waktu, deskripsi, status, foto, lokasi, titik_lokasi]
     );
 
-    console.log('Report inserted successfully with ID:', result.rows[0].id_laporan);
-
-    res.status(201).json({
+    return res.status(201).json({
       status: 'success',
       message: 'Laporan berhasil dibuat',
-      data: {
-        id_laporan: result.rows[0].id_laporan,
-        foto_url: foto
-      }
+      data: { id_laporan: result.rows[0].id_laporan, foto_url: foto }
     });
   } catch (error) {
-    console.error('Error while creating report:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Terjadi kesalahan saat membuat laporan: ' + error.message
-    });
+    // Log error hanya di server
+    if (process.env.NODE_ENV === 'development') console.error('Error while creating report:', error);
+    res.status(500).json({ status: 'error', message: 'Terjadi kesalahan saat membuat laporan' });
   }
 };
 
