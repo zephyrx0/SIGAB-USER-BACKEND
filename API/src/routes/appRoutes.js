@@ -14,6 +14,7 @@ const informasiCuacaController = require('../controllers/informasiCuacaControlle
 const { verifyToken } = require('../middlewares/authMiddleware');
 const supabase = require('../config/supabaseStorage');
 const { v4: uuidv4 } = require('uuid');
+const fs = require('fs').promises;
 
 // Impor userRoutes baru
 const userRoutes = require('./userRoutes');
@@ -33,6 +34,20 @@ const upload = multer({
     fileSize: 5 * 1024 * 1024 // 5MB limit
   }
 });
+
+// Tambahkan fungsi untuk menyimpan file lokal sebagai fallback
+const saveFileLocally = async (file, fileName) => {
+  try {
+    const uploadDir = path.join(process.cwd(), 'uploads');
+    await fs.mkdir(uploadDir, { recursive: true });
+    const filePath = path.join(uploadDir, fileName);
+    await fs.writeFile(filePath, file.buffer);
+    return `${process.env.APP_URL || 'http://localhost:3000'}/uploads/${fileName}`;
+  } catch (error) {
+    console.error('Error saving file locally:', error);
+    throw error;
+  }
+};
 
 // Middleware untuk upload ke Supabase
 const uploadToSupabase = async (req, res, next) => {
@@ -56,7 +71,6 @@ const uploadToSupabase = async (req, res, next) => {
       });
     }
 
-    // Log detail file dan koneksi
     console.log('File details:', {
       name: fileName,
       path: filePath,
@@ -65,70 +79,62 @@ const uploadToSupabase = async (req, res, next) => {
     });
 
     console.log('Attempting Supabase connection...');
-    
-    // Tentukan content type berdasarkan ekstensi file
-    let contentType;
-    switch (fileExt) {
-      case '.png':
-        contentType = 'image/png';
-        break;
-      case '.jpg':
-      case '.jpeg':
-        contentType = 'image/jpeg';
-        break;
-      default:
-        return res.status(400).json({
-          status: 'error',
-          message: 'Tipe file tidak didukung'
-        });
-    }
 
-    // Upload ke Supabase dengan retry logic
+    // Coba upload ke Supabase dengan 3 percobaan
     let retries = 3;
     let lastError = null;
-    
-    while (retries > 0) {
+    let uploadSuccess = false;
+
+    while (retries > 0 && !uploadSuccess) {
       try {
         console.log(`Upload attempt ${4 - retries}/3...`);
         
         const { data, error } = await supabase.storage
           .from('images')
           .upload(filePath, file.buffer, {
-            contentType: contentType,
+            contentType: file.mimetype,
             upsert: true,
             duplex: 'half'
           });
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
         // Get public URL
         const { data: urlData } = supabase.storage
           .from('images')
           .getPublicUrl(filePath);
 
-        // Simpan URL ke request
         req.file.publicUrl = urlData.publicUrl;
-        console.log('File uploaded successfully. Public URL:', urlData.publicUrl);
-        return next();
+        console.log('File uploaded successfully to Supabase. Public URL:', urlData.publicUrl);
+        uploadSuccess = true;
+        break;
       } catch (error) {
         lastError = error;
         console.error(`Upload attempt ${4 - retries}/3 failed:`, error);
         retries--;
         if (retries > 0) {
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+          await new Promise(resolve => setTimeout(resolve, 1000 * (4 - retries))); // Increasing delay
         }
       }
     }
 
-    // If all retries failed
-    console.error('All upload attempts failed. Last error:', lastError);
-    return res.status(500).json({
-      status: 'error',
-      message: 'Gagal mengupload foto setelah beberapa percobaan: ' + lastError.message
-    });
+    // Jika semua percobaan ke Supabase gagal, gunakan fallback local storage
+    if (!uploadSuccess) {
+      console.log('All Supabase upload attempts failed, using local storage fallback...');
+      try {
+        const localUrl = await saveFileLocally(file, fileName);
+        req.file.publicUrl = localUrl;
+        console.log('File saved locally. URL:', localUrl);
+      } catch (error) {
+        console.error('Local storage fallback failed:', error);
+        return res.status(500).json({
+          status: 'error',
+          message: 'Gagal menyimpan file: ' + error.message
+        });
+      }
+    }
 
+    next();
   } catch (error) {
     console.error('Error in upload middleware:', error);
     res.status(500).json({

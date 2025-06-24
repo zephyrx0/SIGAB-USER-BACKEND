@@ -3,6 +3,26 @@ const cors = require('cors');
 const path = require('path');
 const app = express();
 require('dotenv').config();
+const { createLogger, format, transports } = require('winston');
+
+// Konfigurasi logger
+const logger = createLogger({
+  format: format.combine(
+    format.timestamp(),
+    format.json()
+  ),
+  transports: [
+    new transports.File({ filename: 'logs/error.log', level: 'error' }),
+    new transports.File({ filename: 'logs/combined.log' })
+  ]
+});
+
+// Tambahkan console transport untuk development
+if (process.env.NODE_ENV !== 'production') {
+  logger.add(new transports.Console({
+    format: format.simple()
+  }));
+}
 
 // Log environment variables (without sensitive data)
 console.log('Environment:', {
@@ -37,16 +57,10 @@ app.get('/', (req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error('Error details:', {
-    message: err.message,
-    stack: err.stack,
-    name: err.name
-  });
-  
+  logger.error(err.stack);
   res.status(500).json({
     status: 'error',
-    message: err.message || 'Terjadi kesalahan pada server',
-    error: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    message: 'Terjadi kesalahan pada server'
   });
 });
 
@@ -61,7 +75,7 @@ app.use((req, res) => {
 // Jalankan server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server SIGAB berjalan di port ${PORT}`);
+  logger.info(`Server SIGAB berjalan di port ${PORT}`);
 }).on('error', (err) => {
   console.error('Server error:', err);
   process.exit(1);
