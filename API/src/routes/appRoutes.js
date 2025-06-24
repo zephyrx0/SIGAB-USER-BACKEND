@@ -118,20 +118,14 @@ const uploadToSupabase = async (req, res, next) => {
       }
     }
 
-    // Jika semua percobaan ke Supabase gagal, gunakan fallback local storage
+    // Jika semua percobaan ke Supabase gagal, return error
     if (!uploadSuccess) {
-      console.log('All Supabase upload attempts failed, using local storage fallback...');
-      try {
-        const localUrl = await saveFileLocally(file, fileName);
-        req.file.publicUrl = localUrl;
-        console.log('File saved locally. URL:', localUrl);
-      } catch (error) {
-        console.error('Local storage fallback failed:', error);
-        return res.status(500).json({
-          status: 'error',
-          message: 'Gagal menyimpan file: ' + error.message
-        });
-      }
+      console.error('All Supabase upload attempts failed. Last error:', lastError);
+      return res.status(500).json({
+        status: 'error',
+        message: 'Gagal mengupload foto ke Supabase setelah beberapa percobaan',
+        error: lastError && lastError.message ? lastError.message : lastError
+      });
     }
 
     next();
