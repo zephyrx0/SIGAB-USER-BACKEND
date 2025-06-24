@@ -13,14 +13,33 @@ exports.createReport = async (req, res) => {
     
     // Handle foto URL
     let foto = null;
+    
+    // Validasi foto
+    if (!req.file && !req.body.foto) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Foto wajib diunggah'
+      });
+    }
+
     if (req.file && req.file.publicUrl) {
       foto = req.file.publicUrl;
       console.log('Using uploaded file URL:', foto);
     } else if (req.body.foto) {
       foto = req.body.foto;
       console.log('Using provided foto URL:', foto);
-    } else {
-      console.log('No foto provided');
+    }
+
+    // Validasi format foto URL jika menggunakan URL
+    if (req.body.foto && !req.file) {
+      try {
+        new URL(req.body.foto);
+      } catch (error) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Format URL foto tidak valid'
+        });
+      }
     }
 
     console.log('Received data:', {

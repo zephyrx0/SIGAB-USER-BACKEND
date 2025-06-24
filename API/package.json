@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
+    "start": "node --dns-result-order=ipv4first server.js",
+    "dev": "nodemon --dns-result-order=ipv4first server.js",
     "test": "jest",
     "seed": "node src/seeders/index.js"
   },
