@@ -95,15 +95,20 @@ exports.getNotificationHistory = async (req, res) => {
 // Fungsi untuk mengecek peringatan cuaca (hujan hari ini)
 exports.checkWeatherWarning = async (req, res) => {
   try {
+    console.log('[WEATHER] Memulai pengecekan peringatan cuaca...');
     // Ambil data cuaca dari BMKG
     const response = await axios.get('https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=32.04.12.2006');
+    console.log('[WEATHER] Data BMKG diterima:', JSON.stringify(response.data).slice(0, 500)); // log sebagian data
     let cuacaList = [];
     if (Array.isArray(response.data)) {
       cuacaList = response.data;
+      console.log('[WEATHER] Struktur data: Array root, length:', cuacaList.length);
     } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
       cuacaList = response.data.data;
+      console.log('[WEATHER] Struktur data: Object root, data array length:', cuacaList.length);
     }
     if (!cuacaList.length) {
+      console.log('[WEATHER] Tidak ada data cuaca tersedia.');
       return res.status(200).json({
         status: 'success',
         should_notify: false,
@@ -121,6 +126,7 @@ exports.checkWeatherWarning = async (req, res) => {
       }
     }
     if (!todayForecast || !todayForecast.cuaca || !Array.isArray(todayForecast.cuaca)) {
+      console.log('[WEATHER] Data cuaca hari ini belum tersedia.');
       return res.status(200).json({
         status: 'success',
         should_notify: false,
@@ -136,18 +142,22 @@ exports.checkWeatherWarning = async (req, res) => {
       const weatherDesc = forecast.weather_desc.toLowerCase();
       const localTime = new Date(forecast.local_datetime);
       const diffHours = (localTime - today) / (1000 * 60 * 60);
+      console.log(`[WEATHER] Cek forecast: desc=${weatherDesc}, waktu=${forecast.local_datetime}, diffHours=${diffHours}`);
       if (diffHours >= 0 && diffHours <= 24 && weatherDesc.includes('cerah')) {
         cerahFound = true;
         cerahTime = localTime;
+        console.log('[WEATHER] Cerah ditemukan pada:', cerahTime);
         break;
       }
     }
     if (cerahFound && cerahTime) {
       const timeFormat = cerahTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+      const msg = `Peringatan: Diperkirakan cuaca cerah hari ini pada pukul ${timeFormat}. Tetap waspada terhadap panas berlebih!`;
+      console.log('[WEATHER] Mengirim notifikasi cuaca cerah:', msg);
       return res.status(200).json({
         status: 'success',
         should_notify: true,
-        message: `Peringatan: Diperkirakan cuaca cerah hari ini pada pukul ${timeFormat}. Tetap waspada terhadap panas berlebih!`
+        message: msg
       });
     }
     // --- Akhir notifikasi cuaca cerah ---
@@ -220,6 +230,7 @@ exports.checkWeatherWarning = async (req, res) => {
     // --- Akhir notifikasi cuaca hujan ---
     */
 
+    console.log('[WEATHER] Tidak ada peringatan cuaca khusus hari ini.');
     return res.status(200).json({
       status: 'success',
       should_notify: false,
