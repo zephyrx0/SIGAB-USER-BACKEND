@@ -115,17 +115,25 @@ exports.checkWeatherWarning = async (req, res) => {
         message: 'Data cuaca tidak tersedia saat ini.'
       });
     }
-    // Cari forecast untuk hari ini
+    // Cari forecast untuk hari ini berdasarkan local_datetime
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
-    let todayForecast = null;
+    let todayForecasts = [];
     for (const lokasi of cuacaList) {
-      if (lokasi.tanggal === todayStr) {
-        todayForecast = lokasi;
-        break;
+      if (!lokasi.cuaca || !Array.isArray(lokasi.cuaca)) continue;
+      for (const period of lokasi.cuaca) {
+        if (!Array.isArray(period)) continue;
+        for (const forecast of period) {
+          if (!forecast.local_datetime) continue;
+          const forecastDate = new Date(forecast.local_datetime);
+          const forecastStr = forecastDate.toISOString().split('T')[0];
+          if (forecastStr === todayStr) {
+            todayForecasts.push(forecast);
+          }
+        }
       }
     }
-    if (!todayForecast || !todayForecast.cuaca || !Array.isArray(todayForecast.cuaca)) {
+    if (!todayForecasts.length) {
       console.log('[WEATHER] Data cuaca hari ini belum tersedia.');
       return res.status(200).json({
         status: 'success',
@@ -137,7 +145,7 @@ exports.checkWeatherWarning = async (req, res) => {
     // --- Notifikasi cuaca cerah ---
     let cerahFound = false;
     let cerahTime = null;
-    for (const forecast of todayForecast.cuaca) {
+    for (const forecast of todayForecasts) {
       if (!forecast.weather_desc || !forecast.local_datetime) continue;
       const weatherDesc = forecast.weather_desc.toLowerCase();
       const localTime = new Date(forecast.local_datetime);
