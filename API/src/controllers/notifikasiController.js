@@ -97,24 +97,29 @@ exports.checkWeatherWarning = async (req, res) => {
   try {
     // Ambil data cuaca dari BMKG
     const response = await axios.get('https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=32.04.12.2006');
-    
-    // Validasi response data
-    if (!response.data || !Array.isArray(response.data)) {
-      console.error('Invalid BMKG API response format:', response.data);
+    let cuacaList = [];
+    if (Array.isArray(response.data)) {
+      cuacaList = response.data;
+    } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
+      cuacaList = response.data.data;
+    }
+    if (!cuacaList.length) {
       return res.status(200).json({
         status: 'success',
         should_notify: false,
         message: 'Data cuaca tidak tersedia saat ini.'
       });
     }
-
-    // Analisis data cuaca untuk hari ini
+    // Cari forecast untuk hari ini
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0]; // Format: YYYY-MM-DD
-
-    // Cari data cuaca untuk hari ini
-    const todayForecast = response.data.find(day => day.tanggal === todayStr);
-    
+    const todayStr = today.toISOString().split('T')[0];
+    let todayForecast = null;
+    for (const lokasi of cuacaList) {
+      if (lokasi.tanggal === todayStr) {
+        todayForecast = lokasi;
+        break;
+      }
+    }
     if (!todayForecast || !todayForecast.cuaca || !Array.isArray(todayForecast.cuaca)) {
       return res.status(200).json({
         status: 'success',
