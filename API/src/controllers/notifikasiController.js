@@ -123,6 +123,32 @@ exports.checkWeatherWarning = async (req, res) => {
       });
     }
 
+    // --- Notifikasi cuaca cerah ---
+    let cerahFound = false;
+    let cerahTime = null;
+    for (const forecast of todayForecast.cuaca) {
+      if (!forecast.weather_desc || !forecast.local_datetime) continue;
+      const weatherDesc = forecast.weather_desc.toLowerCase();
+      const localTime = new Date(forecast.local_datetime);
+      const diffHours = (localTime - today) / (1000 * 60 * 60);
+      if (diffHours >= 0 && diffHours <= 24 && weatherDesc.includes('cerah')) {
+        cerahFound = true;
+        cerahTime = localTime;
+        break;
+      }
+    }
+    if (cerahFound && cerahTime) {
+      const timeFormat = cerahTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+      return res.status(200).json({
+        status: 'success',
+        should_notify: true,
+        message: `Peringatan: Diperkirakan cuaca cerah hari ini pada pukul ${timeFormat}. Tetap waspada terhadap panas berlebih!`
+      });
+    }
+    // --- Akhir notifikasi cuaca cerah ---
+
+    /*
+    // --- Notifikasi cuaca hujan (kode lama, dikomentari) ---
     // Analisis kondisi cuaca
     let shouldNotify = false;
     let warningMessage = '';
@@ -131,21 +157,15 @@ exports.checkWeatherWarning = async (req, res) => {
     let rainType = null;
     let lastRainTime = null;
     let maxRainIntensity = 0;
-
-    // Loop melalui perkiraan cuaca per jam
     for (const forecast of todayForecast.cuaca) {
       if (!forecast.weather_desc || !forecast.local_datetime) continue;
-
       const weatherDesc = forecast.weather_desc.toLowerCase();
       const localTime = new Date(forecast.local_datetime);
-
-      // Deteksi intensitas hujan
       let rainIntensity = 0;
       if (weatherDesc.includes('hujan ringan')) rainIntensity = 1;
       else if (weatherDesc.includes('hujan sedang')) rainIntensity = 2;
       else if (weatherDesc.includes('hujan lebat')) rainIntensity = 3;
       else if (weatherDesc.includes('hujan sangat lebat')) rainIntensity = 4;
-
       if (rainIntensity > 0) {
         if (rainStartTime === null) {
           rainStartTime = localTime;
@@ -155,15 +175,12 @@ exports.checkWeatherWarning = async (req, res) => {
         consecutiveRainHours++;
         maxRainIntensity = Math.max(maxRainIntensity, rainIntensity);
       } else {
-        // Reset jika hujan berhenti
         rainStartTime = null;
         consecutiveRainHours = 0;
         lastRainTime = null;
         maxRainIntensity = 0;
       }
     }
-
-    // Tentukan apakah perlu notifikasi berdasarkan kondisi
     if (consecutiveRainHours >= 3 && rainStartTime && lastRainTime) {
       shouldNotify = true;
       const timeFormat = new Intl.DateTimeFormat('id-ID', {
@@ -171,17 +188,14 @@ exports.checkWeatherWarning = async (req, res) => {
         minute: '2-digit',
         hour12: false
       });
-      
       const startTime = timeFormat.format(rainStartTime);
       const endTime = timeFormat.format(lastRainTime);
-      
       let intensityWarning = '';
       if (maxRainIntensity >= 3) {
         intensityWarning = 'Waspadai potensi banjir! ';
       } else if (maxRainIntensity >= 2) {
         intensityWarning = 'Perhatikan genangan air! ';
       }
-      
       warningMessage = `${intensityWarning}Peringatan: ${rainType} diperkirakan terjadi selama ${consecutiveRainHours} jam dari pukul ${startTime} hingga ${endTime} WIB. Lakukan mitigasi banjir.`;
     } else if (todayForecast.cuaca.some(f => f.weather_desc && f.weather_desc.toLowerCase().includes('hujan'))) {
       shouldNotify = true;
@@ -189,14 +203,22 @@ exports.checkWeatherWarning = async (req, res) => {
         .filter(f => f.weather_desc && f.weather_desc.toLowerCase().includes('hujan'))
         .map(f => f.weather_desc)
         .filter((v, i, a) => a.indexOf(v) === i); // Remove duplicates
-
       warningMessage = `Peringatan: Diperkirakan terjadi ${rainTypes.join(', ')} hari ini. Siapkan payung dan perhatikan genangan air!`;
     }
+    if (shouldNotify) {
+      return res.status(200).json({
+        status: 'success',
+        should_notify: true,
+        message: warningMessage
+      });
+    }
+    // --- Akhir notifikasi cuaca hujan ---
+    */
 
-    res.status(200).json({
+    return res.status(200).json({
       status: 'success',
-      should_notify: shouldNotify,
-      message: warningMessage || 'Kondisi cuaca cenderung stabil hari ini.'
+      should_notify: false,
+      message: 'Kondisi cuaca cenderung stabil hari ini.'
     });
   } catch (error) {
     console.error('Error while checking weather warning:', error);
