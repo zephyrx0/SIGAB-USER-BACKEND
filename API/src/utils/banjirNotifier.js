@@ -45,6 +45,25 @@ async function kirimNotifikasiBanjirTerbaru() {
       deskripsi,
       { wilayah_banjir }
     );
+    console.log('[BANJIR][FCM] Selesai kirim notifikasi');
+    
+    // OPSI: Pilih salah satu untuk menghindari duplikasi
+    // Opsi 1: Kirim FCM saja (hapus bagian Twilio di bawah)
+    // Opsi 2: Kirim Twilio saja (hapus bagian FCM di atas)
+    // Opsi 3: Kirim keduanya dengan delay (seperti sekarang)
+    
+    // Kontrol via environment variable
+    const NOTIFICATION_MODE = process.env.NOTIFICATION_MODE || 'both'; // 'fcm', 'twilio', 'both'
+    
+    if (NOTIFICATION_MODE === 'fcm') {
+      console.log('[BANJIR][SKIP] Skip Twilio karena NOTIFICATION_MODE=fcm');
+      return;
+    }
+    
+    // Delay 2 detik sebelum kirim WhatsApp untuk menghindari duplikasi
+    console.log('[BANJIR][DELAY] Menunggu 2 detik sebelum kirim WhatsApp...');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
     // Kirim WhatsApp ke semua user
     console.log('[BANJIR][TWILIO] Akan mengirim WhatsApp...');
     await kirimWhatsappKeSemuaUser(deskripsi);

@@ -26,6 +26,10 @@ async function kirimNotifikasiTigaLaporanValid() {
     pesan
   );
 
+  // Delay 2 detik sebelum kirim WhatsApp untuk menghindari duplikasi
+  console.log('[LAPORAN][DELAY] Menunggu 2 detik sebelum kirim WhatsApp...');
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  
   // Kirim WhatsApp ke semua user
   console.log('[LAPORAN][TWILIO] Akan mengirim WhatsApp...');
   await kirimWhatsappKeSemuaUser(pesan);

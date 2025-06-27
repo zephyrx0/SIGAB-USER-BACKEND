@@ -92,6 +92,11 @@ async function kirimNotifikasiCuaca() {
       { jam, cuaca }
     );
     console.log('[CUACA][FCM] Selesai kirim notifikasi ke topic: peringatan-umum');
+    
+    // Delay 2 detik sebelum kirim WhatsApp untuk menghindari duplikasi
+    console.log('[CUACA][DELAY] Menunggu 2 detik sebelum kirim WhatsApp...');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
     // Kirim WhatsApp ke semua user
     console.log('[CUACA][TWILIO] Akan mengirim WhatsApp...');
     await kirimWhatsappKeSemuaUser(deskripsi);

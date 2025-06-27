@@ -44,17 +44,29 @@ async function kirimWhatsappKeSemuaUser(pesan) {
       const nomorInternasional = formatNomorInternasional(nomor);
       console.log(`[TWILIO] Mengirim ke ${nomor} (${nomorInternasional})`);
       
-      await client.messages.create({
+      // Untuk Twilio trial, tambahkan prefix jika diperlukan
+      let pesanFinal = pesan;
+      if (process.env.NODE_ENV === 'development' || !process.env.TWILIO_PRODUCTION_MODE) {
+        // Jika masih trial, tambahkan prefix
+        pesanFinal = `[SIGAB] ${pesan}`;
+      }
+      
+      const result = await client.messages.create({
         from: whatsappSender,
         to: `whatsapp:${nomorInternasional}`,
-        body: pesan,
+        body: pesanFinal,
       });
+      
       console.log(`[TWILIO] WhatsApp sent to ${nomorInternasional}`);
+      console.log(`[TWILIO] Message SID: ${result.sid}`);
+      console.log(`[TWILIO] Status: ${result.status}`);
       
       // Delay 1 detik untuk menghindari rate limiting
       await new Promise(resolve => setTimeout(resolve, 1000));
     } catch (e) {
       console.error(`[TWILIO] Failed to send to ${nomor}:`, e.message);
+      console.error(`[TWILIO] Error code:`, e.code);
+      console.error(`[TWILIO] Error details:`, e.details);
     }
   }
   console.log(`[TWILIO] Selesai mengirim WhatsApp ke semua user`);
