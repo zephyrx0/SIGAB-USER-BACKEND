@@ -5,6 +5,7 @@ const isDemo = process.env.DEMO_MODE === 'true';
 
 // Fungsi untuk kirim notifikasi peringatan dini cuaca berdasarkan response BMKG
 async function kirimNotifikasiCuaca() {
+  console.log('[CUACA][CRON] Memulai pengecekan notifikasi cuaca...');
   let data;
   if (isDemo) {
     // Data mock: selalu ada hujan 1 jam dari sekarang
@@ -22,9 +23,15 @@ async function kirimNotifikasiCuaca() {
   }
 
   // Cek struktur data
-  if (!data || !Array.isArray(data.data) || data.data.length === 0) return;
+  if (!data || !Array.isArray(data.data) || data.data.length === 0) {
+    console.log('[CUACA][CRON] Tidak ada data cuaca tersedia');
+    return;
+  }
   const lokasiData = data.data[0];
-  if (!lokasiData.cuaca || !Array.isArray(lokasiData.cuaca)) return;
+  if (!lokasiData.cuaca || !Array.isArray(lokasiData.cuaca)) {
+    console.log('[CUACA][CRON] Struktur data cuaca tidak valid');
+    return;
+  }
 
   // Flatten array cuaca (karena nested array)
   const allForecasts = lokasiData.cuaca.flat();
@@ -45,7 +52,7 @@ async function kirimNotifikasiCuaca() {
   }
 
   if (!hujanForecast) {
-    console.log('[CUACA] Tidak ada hujan terdekat, notifikasi tidak dikirim.');
+    console.log('[CUACA][CRON] Tidak ada hujan terdekat, notifikasi tidak dikirim.');
     return;
   }
 
@@ -64,7 +71,7 @@ async function kirimNotifikasiCuaca() {
     ['Peringatan Dini Cuaca', deskripsi]
   );
   if (cek.rows.length > 0) {
-    console.log('[CUACA] Notifikasi cuaca ini sudah pernah dikirim hari ini, skip.');
+    console.log('[CUACA][CRON] Notifikasi cuaca ini sudah pernah dikirim hari ini, skip.');
     return;
   }
 
@@ -81,6 +88,7 @@ async function kirimNotifikasiCuaca() {
     'INSERT INTO sigab_app.notifikasi (judul, pesan, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) ON CONFLICT DO NOTHING',
     ['Peringatan Dini Cuaca', deskripsi]
   );
+  console.log('[CUACA][DB] Notifikasi berhasil disimpan ke database');
 }
 
 module.exports = { kirimNotifikasiCuaca }; 
