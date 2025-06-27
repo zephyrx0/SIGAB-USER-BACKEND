@@ -1,6 +1,6 @@
 const pool = require('../config/database');
 const axios = require('axios');
-const { sendFcmNotification, sendFcmTopicNotification } = require('../utils/fcm');
+const { sendFcmNotification } = require('../utils/fcm');
 const { kirimNotifikasiBanjirTerbaru } = require('../utils/banjirNotifier');
 const { kirimNotifikasiCuaca } = require('../utils/cuacaNotifier');
 const cron = require('node-cron');

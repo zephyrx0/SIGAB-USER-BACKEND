@@ -72,4 +72,4 @@ async function sendFcmNotification(token, title, body, data = {}) {
 //   return response.data;
 // }
 
-module.exports = { sendFcmNotification, sendFcmTopicNotification };
+module.exports = { sendFcmNotification };
