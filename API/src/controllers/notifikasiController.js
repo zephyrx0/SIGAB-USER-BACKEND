@@ -267,6 +267,12 @@ exports.broadcastTestNotification = async (req, res) => {
         await sendFcmNotification(token, title || 'Tes Notifikasi', body || 'Ini adalah pesan tes dari backend!');
         success++;
       } catch (e) {
+        console.error(`[FCM ERROR] Token: ${token}`);
+        if (e?.response?.data) {
+          console.error('[FCM ERROR] Response data:', e.response.data);
+        } else {
+          console.error('[FCM ERROR] Message:', e.message);
+        }
         fail++;
       }
     }
