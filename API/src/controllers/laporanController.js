@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const { sendFcmTopicNotification } = require('../utils/fcm');
 
 // Fungsi untuk membuat laporan baru
 exports.createReport = async (req, res) => {
