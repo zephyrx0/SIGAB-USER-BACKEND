@@ -6,7 +6,7 @@ const { kirimNotifikasiCuaca } = require('../utils/cuacaNotifier');
 const cron = require('node-cron');
 
 // Scheduler: Notifikasi banjir setiap 10 menit
-cron.schedule('*/10 * * * * *', async () => {
+cron.schedule('*/10 * * * *', async () => {
   try {
     await kirimNotifikasiBanjirTerbaru();
     // Log akan muncul di dalam fungsi jika notifikasi benar-benar dikirim
@@ -15,8 +15,8 @@ cron.schedule('*/10 * * * * *', async () => {
   }
 });
 
-// Scheduler: Notifikasi cuaca setiap 5 detik (testing)
-cron.schedule('*/10 * * * * *', async () => {
+// Scheduler: Notifikasi cuaca setiap 30 menit
+cron.schedule('*/30 * * * *', async () => {
   try {
     await kirimNotifikasiCuaca();
     // Log akan muncul di dalam fungsi jika notifikasi benar-benar dikirim
@@ -306,44 +306,44 @@ exports.broadcastTestNotification = async (req, res) => {
 };
 
 // Endpoint untuk trigger notifikasi peringatan banjir secara manual
-exports.triggerNotifikasiBanjir = async (req, res) => {
-  try {
-    await kirimNotifikasiBanjirTerbaru();
-    res.json({ status: 'success', message: 'Notifikasi banjir dikirim' });
-  } catch (e) {
-    res.status(500).json({ status: 'error', message: e.message });
-  }
-};
+// exports.triggerNotifikasiBanjir = async (req, res) => {
+//   try {
+//     await kirimNotifikasiBanjirTerbaru();
+//     res.json({ status: 'success', message: 'Notifikasi banjir dikirim' });
+//   } catch (e) {
+//     res.status(500).json({ status: 'error', message: e.message });
+//   }
+// };
 
 // Endpoint untuk trigger notifikasi peringatan cuaca secara manual
-exports.triggerNotifikasiCuaca = async (req, res) => {
-  try {
-    await kirimNotifikasiCuaca();
-    res.json({ status: 'success', message: 'Notifikasi cuaca dikirim' });
-  } catch (e) {
-    res.status(500).json({ status: 'error', message: e.message });
-  }
-};
+// exports.triggerNotifikasiCuaca = async (req, res) => {
+//   try {
+//     await kirimNotifikasiCuaca();
+//     res.json({ status: 'success', message: 'Notifikasi cuaca dikirim' });
+//   } catch (e) {
+//     res.status(500).json({ status: 'error', message: e.message });
+//   }
+// };
 
 // Endpoint untuk testing trigger notifikasi banjir secara manual
-exports.testNotifikasiBanjir = async (req, res) => {
-  try {
-    await kirimNotifikasiBanjirTerbaru();
-    res.json({ status: 'success', message: 'Test: Notifikasi banjir dikirim' });
-  } catch (e) {
-    res.status(500).json({ status: 'error', message: e.message });
-  }
-};
+// exports.testNotifikasiBanjir = async (req, res) => {
+//   try {
+//     await kirimNotifikasiBanjirTerbaru();
+//     res.json({ status: 'success', message: 'Test: Notifikasi banjir dikirim' });
+//   } catch (e) {
+//     res.status(500).json({ status: 'error', message: e.message });
+//   }
+// };
 
 // Endpoint untuk testing trigger notifikasi cuaca secara manual
-exports.testNotifikasiCuaca = async (req, res) => {
-  try {
-    await kirimNotifikasiCuaca();
-    res.json({ status: 'success', message: 'Test: Notifikasi cuaca dikirim' });
-  } catch (e) {
-    res.status(500).json({ status: 'error', message: e.message });
-  }
-};
+// exports.testNotifikasiCuaca = async (req, res) => {
+//   try {
+//     await kirimNotifikasiCuaca();
+//     res.json({ status: 'success', message: 'Test: Notifikasi cuaca dikirim' });
+//   } catch (e) {
+//     res.status(500).json({ status: 'error', message: e.message });
+//   }
+// };
 
 exports.deleteLastNotifications = async (req, res) => {
   try {
