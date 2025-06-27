@@ -11,6 +11,7 @@ const tempatEvakuasiController = require('../controllers/tempatEvakuasiControlle
 const riwayatBanjirController = require('../controllers/riwayatBanjirController');
 const notifikasiController = require('../controllers/notifikasiController');
 const informasiCuacaController = require('../controllers/informasiCuacaController');
+const fcmController = require('../controllers/fcmController');
 const { verifyToken } = require('../middlewares/authMiddleware');
 const supabase = require('../config/supabaseStorage');
 const { v4: uuidv4 } = require('uuid');
@@ -187,5 +188,8 @@ router.get('/notification-history', notifikasiController.getNotificationHistory)
 router.get('/cuaca',informasiCuacaController.getWeather);
 
 router.get('/latest-flood-info', informasiBanjirController.getLatestFloodInfo);
+
+// Endpoint untuk register FCM token
+router.post('/register-fcm-token', fcmController.registerFcmToken);
 
 module.exports = router;
