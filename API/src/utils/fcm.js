@@ -50,26 +50,26 @@ async function sendFcmNotification(token, title, body, data = {}) {
   return response.data;
 }
 
-async function sendFcmTopicNotification(topic, title, body, data = {}) {
-  const accessToken = await getAccessToken();
-  const url = `https://fcm.googleapis.com/v1/projects/${PROJECT_ID}/messages:send`;
+// async function sendFcmTopicNotification(topic, title, body, data = {}) {
+//   const accessToken = await getAccessToken();
+//   const url = `https://fcm.googleapis.com/v1/projects/${PROJECT_ID}/messages:send`;
 
-  const message = {
-    message: {
-      topic,
-      notification: { title, body },
-      data,
-    },
-  };
+//   const message = {
+//     message: {
+//       topic,
+//       notification: { title, body },
+//       data,
+//     },
+//   };
 
-  const response = await axios.post(url, message, {
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-  });
+//   const response = await axios.post(url, message, {
+//     headers: {
+//       'Authorization': `Bearer ${accessToken}`,
+//       'Content-Type': 'application/json',
+//     },
+//   });
 
-  return response.data;
-}
+//   return response.data;
+// }
 
 module.exports = { sendFcmNotification, sendFcmTopicNotification };
