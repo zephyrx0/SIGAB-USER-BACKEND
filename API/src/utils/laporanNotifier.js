@@ -27,7 +27,9 @@ async function kirimNotifikasiTigaLaporanValid() {
   );
 
   // Kirim WhatsApp ke semua user
+  console.log('[LAPORAN][TWILIO] Akan mengirim WhatsApp...');
   await kirimWhatsappKeSemuaUser(pesan);
+  console.log('[LAPORAN][TWILIO] Selesai mengirim WhatsApp');
   
   // Simpan ke tabel notifikasi
   await pool.query(

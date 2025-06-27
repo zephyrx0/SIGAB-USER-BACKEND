@@ -40,13 +40,15 @@ async function kirimNotifikasiBanjirTerbaru() {
 
     console.log('[BANJIR][FCM] Akan mengirim notifikasi...');
     await sendFcmTopicNotification(
-      'peringatan-banjir',
+      'peringatan-umum',
       'Informasi Banjir Terbaru',
       deskripsi,
       { wilayah_banjir }
     );
     // Kirim WhatsApp ke semua user
+    console.log('[BANJIR][TWILIO] Akan mengirim WhatsApp...');
     await kirimWhatsappKeSemuaUser(deskripsi);
+    console.log('[BANJIR][TWILIO] Selesai mengirim WhatsApp');
     
     await pool.query(
       'INSERT INTO sigab_app.notifikasi (judul, pesan, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) ON CONFLICT DO NOTHING',

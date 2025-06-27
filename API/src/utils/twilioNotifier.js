@@ -33,6 +33,8 @@ function formatNomorInternasional(nomor) {
 
 async function kirimWhatsappKeSemuaUser(pesan) {
   const { rows } = await pool.query('SELECT nomor_wa FROM sigab_app.user_app WHERE nomor_wa IS NOT NULL');
+  console.log(`[TWILIO] Akan mengirim WhatsApp ke ${rows.length} user`);
+  
   for (const user of rows) {
     const nomor = user.nomor_wa;
     if (!nomor) continue;
@@ -48,10 +50,14 @@ async function kirimWhatsappKeSemuaUser(pesan) {
         body: pesan,
       });
       console.log(`[TWILIO] WhatsApp sent to ${nomorInternasional}`);
+      
+      // Delay 1 detik untuk menghindari rate limiting
+      await new Promise(resolve => setTimeout(resolve, 1000));
     } catch (e) {
       console.error(`[TWILIO] Failed to send to ${nomor}:`, e.message);
     }
   }
+  console.log(`[TWILIO] Selesai mengirim WhatsApp ke semua user`);
 }
 
 module.exports = { kirimWhatsappKeSemuaUser };
