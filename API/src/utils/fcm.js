@@ -3,7 +3,7 @@ const axios = require('axios');
 const path = require('path');
 
 // Ganti path berikut ke lokasi file service account JSON kamu
-const serviceAccount = require(path.join(__dirname, '../../sigab-user-03ffc54d48dc.json'));
+const serviceAccount = require(path.join(__dirname, '../../sigab-user-9878781f458a.json'));
 
 const SCOPES = ['https://www.googleapis.com/auth/firebase.messaging'];
 const PROJECT_ID = serviceAccount.project_id;
