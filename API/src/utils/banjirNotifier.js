@@ -25,16 +25,18 @@ async function kirimNotifikasiBanjirTerbaru() {
   }
 
   // Kirim notifikasi
+  console.log('[BANJIR][FCM] Akan mengirim notifikasi ke topic: peringatan-banjir', 'Informasi Banjir Terbaru', deskripsi);
   await sendFcmTopicNotification(
     'peringatan-banjir',
     'Informasi Banjir Terbaru',
     deskripsi,
     { wilayah_banjir }
   );
+  console.log('[BANJIR][FCM] Selesai kirim notifikasi ke topic: peringatan-banjir');
 
   // Simpan ke tabel notifikasi
   await pool.query(
-    'INSERT INTO sigab_app.notifikasi (judul, pesan, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())',
+    'INSERT INTO sigab_app.notifikasi (judul, pesan, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) ON CONFLICT DO NOTHING',
     ['Informasi Banjir Terbaru', deskripsi]
   );
 }
