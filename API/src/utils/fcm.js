@@ -62,14 +62,12 @@ async function sendFcmTopicNotification(topic, title, body, data = {}) {
     },
   };
 
-  console.log('[FCM] Akan mengirim notifikasi ke topic:', topic, title, body);
   const response = await axios.post(url, message, {
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
   });
-  console.log('[FCM] Selesai kirim notifikasi ke topic:', topic);
 
   return response.data;
 }
