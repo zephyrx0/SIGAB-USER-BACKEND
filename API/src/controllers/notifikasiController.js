@@ -350,13 +350,13 @@ exports.deleteLastNotifications = async (req, res) => {
     const count = parseInt(req.query.count) || 2;
     // Ambil id 2 notifikasi terakhir
     const { rows } = await pool.query(
-      'SELECT id FROM sigab_app.notifikasi ORDER BY created_at DESC LIMIT $1',
+      'SELECT id_notifikasi FROM sigab_app.notifikasi ORDER BY created_at DESC LIMIT $1',
       [count]
     );
-    const ids = rows.map(r => r.id);
+    const ids = rows.map(r => r.id_notifikasi);
     if (ids.length > 0) {
       await pool.query(
-        'DELETE FROM sigab_app.notifikasi WHERE id = ANY($1::int[])',
+        'DELETE FROM sigab_app.notifikasi WHERE id_notifikasi = ANY($1::int[])',
         [ids]
       );
     }
