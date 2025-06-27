@@ -1,5 +1,6 @@
 const pool = require('../config/database');
 const axios = require('axios');
+const { sendFcmNotification } = require('../utils/fcm');
 
 // Fungsi untuk mendapatkan semua notifikasi
 exports.getAllNotifications = async (req, res) => {
@@ -252,5 +253,25 @@ exports.checkWeatherWarning = async (req, res) => {
       status: 'error',
       message: 'Terjadi kesalahan saat mengecek peringatan cuaca'
     });
+  }
+};
+
+exports.broadcastTestNotification = async (req, res) => {
+  try {
+    const { title, body } = req.body;
+    const { rows } = await pool.query('SELECT token FROM sigab_app.fcm_tokens');
+    const tokens = rows.map(r => r.token);
+    let success = 0, fail = 0;
+    for (const token of tokens) {
+      try {
+        await sendFcmNotification(token, title || 'Tes Notifikasi', body || 'Ini adalah pesan tes dari backend!');
+        success++;
+      } catch (e) {
+        fail++;
+      }
+    }
+    res.json({ status: 'success', sent: success, failed: fail });
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: e.message });
   }
 };
