@@ -6,6 +6,10 @@ const path = require('path');
 let serviceAccount;
 if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
   serviceAccount = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+  // Fix: convert \\n to real newlines
+  if (serviceAccount.private_key && serviceAccount.private_key.includes('\\n')) {
+    serviceAccount.private_key = serviceAccount.private_key.split('\\n').join('\n');
+  }
 } else {
   // fallback untuk development lokal
   serviceAccount = require(path.join(__dirname, '../../sigab-user-9878781f458a.json'));
@@ -46,4 +50,4 @@ async function sendFcmNotification(token, title, body, data = {}) {
   return response.data;
 }
 
-module.exports = { sendFcmNotification }; 
+module.exports = { sendFcmNotification };
