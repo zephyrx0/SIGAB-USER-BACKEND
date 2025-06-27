@@ -1,12 +1,25 @@
 const pool = require('../config/database');
 const { sendFcmTopicNotification } = require('./fcm');
 const axios = require('axios');
+const isDemo = process.env.DEMO_MODE === 'true';
 
 // Fungsi untuk kirim notifikasi peringatan dini cuaca berdasarkan response BMKG
 async function kirimNotifikasiCuaca() {
-  // Ganti URL_API_CUACA dengan endpoint API cuaca BMKG asli kamu
-  const response = await axios.get('https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=32.04.12.2006');
-  const data = response.data;
+  let data;
+  if (isDemo) {
+    // Data mock: selalu ada hujan 1 jam dari sekarang
+    const now = new Date();
+    const mockForecast = {
+      weather_desc: 'Hujan Lebat',
+      local_datetime: new Date(now.getTime() + 60 * 60 * 1000).toISOString()
+    };
+    data = { data: [{ cuaca: [[mockForecast]] }] };
+    console.log('[DEMO MODE] Menggunakan data cuaca mock:', data);
+  } else {
+    // Data asli dari BMKG
+    const response = await axios.get('https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=32.04.12.2006');
+    data = response.data;
+  }
 
   // Cek struktur data
   if (!data || !Array.isArray(data.data) || data.data.length === 0) return;
