@@ -306,24 +306,24 @@ exports.broadcastTestNotification = async (req, res) => {
 };
 
 // Endpoint untuk trigger notifikasi peringatan banjir secara manual
-// exports.triggerNotifikasiBanjir = async (req, res) => {
-//   try {
-//     await kirimNotifikasiBanjirTerbaru();
-//     res.json({ status: 'success', message: 'Notifikasi banjir dikirim' });
-//   } catch (e) {
-//     res.status(500).json({ status: 'error', message: e.message });
-//   }
-// };
+exports.triggerNotifikasiBanjir = async (req, res) => {
+  try {
+    await kirimNotifikasiBanjirTerbaru();
+    res.json({ status: 'success', message: 'Notifikasi banjir dikirim' });
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: e.message });
+  }
+};
 
 // Endpoint untuk trigger notifikasi peringatan cuaca secara manual
-// exports.triggerNotifikasiCuaca = async (req, res) => {
-//   try {
-//     await kirimNotifikasiCuaca();
-//     res.json({ status: 'success', message: 'Notifikasi cuaca dikirim' });
-//   } catch (e) {
-//     res.status(500).json({ status: 'error', message: e.message });
-//   }
-// };
+exports.triggerNotifikasiCuaca = async (req, res) => {
+  try {
+    await kirimNotifikasiCuaca();
+    res.json({ status: 'success', message: 'Notifikasi cuaca dikirim' });
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: e.message });
+  }
+};
 
 // Endpoint untuk testing trigger notifikasi banjir secara manual
 // exports.testNotifikasiBanjir = async (req, res) => {
