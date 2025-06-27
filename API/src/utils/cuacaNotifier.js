@@ -1,21 +1,70 @@
+const pool = require('../config/database');
 const { sendFcmTopicNotification } = require('./fcm');
 const axios = require('axios');
 
-// Fungsi untuk kirim notifikasi peringatan dini cuaca
+// Fungsi untuk kirim notifikasi peringatan dini cuaca berdasarkan response BMKG
 async function kirimNotifikasiCuaca() {
-  // Ganti URL_API_CUACA dengan endpoint API cuaca asli kamu
-  const response = await axios.get('URL_API_CUACA');
-  const dataCuaca = response.data; // sesuaikan struktur data API kamu
+  // Ganti URL_API_CUACA dengan endpoint API cuaca BMKG asli kamu
+  const response = await axios.get('https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=32.04.12.2006');
+  const data = response.data;
 
-  // Misal, ambil jam dan status cuaca
-  const jam = dataCuaca.jam_perkiraan || 'segera';
-  const deskripsi = `Peringatan dini: Hujan diperkirakan terjadi pada pukul ${jam}.`;
+  // Cek struktur data
+  if (!data || !Array.isArray(data.data) || data.data.length === 0) return;
+  const lokasiData = data.data[0];
+  if (!lokasiData.cuaca || !Array.isArray(lokasiData.cuaca)) return;
+
+  // Flatten array cuaca (karena nested array)
+  const allForecasts = lokasiData.cuaca.flat();
+
+  // Cari forecast terdekat yang weather_desc mengandung 'hujan'
+  const now = new Date();
+  let hujanForecast = null;
+  for (const forecast of allForecasts) {
+    if (!forecast.weather_desc || !forecast.local_datetime) continue;
+    if (forecast.weather_desc.toLowerCase().includes('hujan')) {
+      // Ambil forecast hujan terdekat setelah waktu sekarang
+      const forecastTime = new Date(forecast.local_datetime.replace(' ', 'T'));
+      if (forecastTime > now) {
+        hujanForecast = forecast;
+        break;
+      }
+    }
+  }
+
+  if (!hujanForecast) {
+    console.log('[CUACA] Tidak ada hujan terdekat, notifikasi tidak dikirim.');
+    return;
+  }
+
+  // Format jam dari local_datetime
+  const jam = new Date(hujanForecast.local_datetime.replace(' ', 'T')).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const cuaca = hujanForecast.weather_desc;
+  const deskripsi = `Peringatan dini: ${cuaca} diperkirakan terjadi pada pukul ${jam}.`;
+
+  // Cek duplikasi hanya untuk hari ini
+  const cek = await pool.query(
+    `SELECT 1 FROM sigab_app.notifikasi 
+     WHERE judul = $1 
+       AND pesan = $2 
+       AND DATE(created_at) = CURRENT_DATE
+     LIMIT 1`,
+    ['Peringatan Dini Cuaca', deskripsi]
+  );
+  if (cek.rows.length > 0) {
+    console.log('[CUACA] Notifikasi cuaca ini sudah pernah dikirim hari ini, skip.');
+    return;
+  }
 
   await sendFcmTopicNotification(
     'peringatan-cuaca',
     'Peringatan Dini Cuaca',
     deskripsi,
-    { jam, cuaca: 'Hujan' }
+    { jam, cuaca }
+  );
+
+  await pool.query(
+    'INSERT INTO sigab_app.notifikasi (judul, pesan, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())',
+    ['Peringatan Dini Cuaca', deskripsi]
   );
 }
 

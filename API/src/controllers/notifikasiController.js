@@ -6,7 +6,7 @@ const { kirimNotifikasiCuaca } = require('../utils/cuacaNotifier');
 const cron = require('node-cron');
 
 // Scheduler: Notifikasi banjir setiap 10 menit
-cron.schedule('*/10 * * * *', async () => {
+cron.schedule('*/5 * * * * *', async () => {
   try {
     await kirimNotifikasiBanjirTerbaru();
     console.log('[CRON] Notifikasi banjir dikirim otomatis');
@@ -15,8 +15,8 @@ cron.schedule('*/10 * * * *', async () => {
   }
 });
 
-// Scheduler: Notifikasi cuaca setiap hari jam 6 pagi
-cron.schedule('0 6 * * *', async () => {
+// Scheduler: Notifikasi cuaca setiap 5 detik (testing)
+cron.schedule('*/5 * * * * *', async () => {
   try {
     await kirimNotifikasiCuaca();
     console.log('[CRON] Notifikasi cuaca dikirim otomatis');
