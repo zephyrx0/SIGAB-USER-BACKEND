@@ -16,7 +16,7 @@ cron.schedule('*/10 * * * *', async () => {
 });
 
 // Scheduler: Notifikasi cuaca setiap 30 menit
-cron.schedule('*/30 * * * *', async () => {
+cron.schedule('*/10 * * * *', async () => {
   try {
     await kirimNotifikasiCuaca();
     // Log akan muncul di dalam fungsi jika notifikasi benar-benar dikirim
