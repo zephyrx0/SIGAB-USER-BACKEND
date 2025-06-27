@@ -71,17 +71,16 @@ async function kirimNotifikasiCuaca() {
     const cuaca = hujanForecast.weather_desc;
     const deskripsi = `Peringatan dini: ${cuaca} diperkirakan terjadi pada pukul ${jam}.`;
 
-    // Cek duplikasi hanya untuk hari ini
+    // Cek duplikasi hanya untuk hari ini (berdasarkan judul saja)
     const cek = await pool.query(
       `SELECT 1 FROM sigab_app.notifikasi 
        WHERE judul = $1 
-         AND pesan = $2 
          AND DATE(created_at) = CURRENT_DATE
        LIMIT 1`,
-      ['Peringatan Dini Cuaca', deskripsi]
+      ['Peringatan Dini Cuaca']
     );
     if (cek.rows.length > 0) {
-      console.log('[CUACA][CRON] Notifikasi cuaca ini sudah pernah dikirim hari ini, skip.');
+      console.log('[CUACA][CRON] Notifikasi cuaca sudah pernah dikirim hari ini, skip.');
       return; // Return dari dalam try-finally
     }
 

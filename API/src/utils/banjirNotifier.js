@@ -25,16 +25,16 @@ async function kirimNotifikasiBanjirTerbaru() {
     const { wilayah_banjir } = result.rows[0];
     const deskripsi = `Banjir terdeteksi di wilayah ${wilayah_banjir}, Mohon waspada`;
 
+    // Cek duplikasi hanya untuk hari ini (berdasarkan judul saja)
     const cek = await pool.query(
       `SELECT 1 FROM sigab_app.notifikasi 
        WHERE judul = $1 
-         AND pesan = $2 
          AND DATE(created_at) = CURRENT_DATE
        LIMIT 1`,
-      ['Informasi Banjir Terbaru', deskripsi]
+      ['Informasi Banjir Terbaru']
     );
     if (cek.rows.length > 0) {
-      console.log('[BANJIR][CRON] Notifikasi sudah pernah dikirim hari ini, skip.');
+      console.log('[BANJIR][CRON] Notifikasi banjir terbaru sudah pernah dikirim hari ini, skip.');
       return; // Jangan lupa return di sini juga
     }
 
