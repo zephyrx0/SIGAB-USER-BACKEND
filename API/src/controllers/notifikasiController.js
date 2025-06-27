@@ -1,21 +1,23 @@
 const pool = require('../config/database');
 const axios = require('axios');
-// const { sendFcmNotification } = require('../utils/fcm');
+const { sendFcmNotification, sendFcmTopicNotification } = require('../utils/fcm');
 const { kirimNotifikasiBanjirTerbaru } = require('../utils/banjirNotifier');
 const { kirimNotifikasiCuaca } = require('../utils/cuacaNotifier');
 const cron = require('node-cron');
+const { cekDanKirimNotifikasiTigaLaporanValid } = require('../utils/laporanNotifier');
 
-// Scheduler: Notifikasi banjir setiap 10 detik
+// Scheduler: Notifikasi banjir setiap 10 menit
 cron.schedule('*/10 * * * * *', async () => {
   try {
     await kirimNotifikasiBanjirTerbaru();
+    await cekDanKirimNotifikasiTigaLaporanValid();
     // Log akan muncul di dalam fungsi jika notifikasi benar-benar dikirim
   } catch (e) {
     console.error('[CRON] Gagal kirim notifikasi banjir:', e.message);
   }
 });
 
-// Scheduler: Notifikasi cuaca setiap 10 detik
+// Scheduler: Notifikasi cuaca setiap 30 menit
 cron.schedule('*/10 * * * * *', async () => {
   try {
     await kirimNotifikasiCuaca();
@@ -279,71 +281,51 @@ exports.checkWeatherWarning = async (req, res) => {
   }
 };
 
-// exports.broadcastTestNotification = async (req, res) => {
-//   try {
-//     const { title, body } = req.body;
-//     const { rows } = await pool.query('SELECT token FROM sigab_app.fcm_tokens');
-//     const tokens = rows.map(r => r.token);
-//     let success = 0, fail = 0;
-//     for (const token of tokens) {
-//       try {
-//         await sendFcmNotification(token, title || 'Tes Notifikasi', body || 'Ini adalah pesan tes dari backend!');
-//         success++;
-//       } catch (e) {
-//         console.error(`[FCM ERROR] Token: ${token}`);
-//         if (e?.response?.data) {
-//           console.error('[FCM ERROR] Response data:', e.response.data);
-//         } else {
-//           console.error('[FCM ERROR] Message:', e.message);
-//         }
-//         fail++;
-//       }
-//     }
-//     res.json({ status: 'success', sent: success, failed: fail });
-//   } catch (e) {
-//     res.status(500).json({ status: 'error', message: e.message });
-//   }
-// };
+exports.broadcastTestNotification = async (req, res) => {
+  try {
+    const { title, body } = req.body;
+    const { rows } = await pool.query('SELECT token FROM sigab_app.fcm_tokens');
+    const tokens = rows.map(r => r.token);
+    let success = 0, fail = 0;
+    for (const token of tokens) {
+      try {
+        await sendFcmNotification(token, title || 'Tes Notifikasi', body || 'Ini adalah pesan tes dari backend!');
+        success++;
+      } catch (e) {
+        console.error(`[FCM ERROR] Token: ${token}`);
+        if (e?.response?.data) {
+          console.error('[FCM ERROR] Response data:', e.response.data);
+        } else {
+          console.error('[FCM ERROR] Message:', e.message);
+        }
+        fail++;
+      }
+    }
+    res.json({ status: 'success', sent: success, failed: fail });
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: e.message });
+  }
+};
 
 // Endpoint untuk trigger notifikasi peringatan banjir secara manual
-// exports.triggerNotifikasiBanjir = async (req, res) => {
-//   try {
-//     await kirimNotifikasiBanjirTerbaru();
-//     res.json({ status: 'success', message: 'Notifikasi banjir dikirim' });
-//   } catch (e) {
-//     res.status(500).json({ status: 'error', message: e.message });
-//   }
-// };
+exports.triggerNotifikasiBanjir = async (req, res) => {
+  try {
+    await kirimNotifikasiBanjirTerbaru();
+    res.json({ status: 'success', message: 'Notifikasi banjir dikirim' });
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: e.message });
+  }
+};
 
 // Endpoint untuk trigger notifikasi peringatan cuaca secara manual
-// exports.triggerNotifikasiCuaca = async (req, res) => {
-//   try {
-//     await kirimNotifikasiCuaca();
-//     res.json({ status: 'success', message: 'Notifikasi cuaca dikirim' });
-//   } catch (e) {
-//     res.status(500).json({ status: 'error', message: e.message });
-//   }
-// };
-
-// Endpoint untuk testing trigger notifikasi banjir secara manual
-// exports.testNotifikasiBanjir = async (req, res) => {
-//   try {
-//     await kirimNotifikasiBanjirTerbaru();
-//     res.json({ status: 'success', message: 'Test: Notifikasi banjir dikirim' });
-//   } catch (e) {
-//     res.status(500).json({ status: 'error', message: e.message });
-//   }
-// };
-
-// Endpoint untuk testing trigger notifikasi cuaca secara manual
-// exports.testNotifikasiCuaca = async (req, res) => {
-//   try {
-//     await kirimNotifikasiCuaca();
-//     res.json({ status: 'success', message: 'Test: Notifikasi cuaca dikirim' });
-//   } catch (e) {
-//     res.status(500).json({ status: 'error', message: e.message });
-//   }
-// };
+exports.triggerNotifikasiCuaca = async (req, res) => {
+  try {
+    await kirimNotifikasiCuaca();
+    res.json({ status: 'success', message: 'Notifikasi cuaca dikirim' });
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: e.message });
+  }
+};
 
 exports.deleteLastNotifications = async (req, res) => {
   try {
