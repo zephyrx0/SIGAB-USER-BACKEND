@@ -1,6 +1,6 @@
 const pool = require('../config/database');
 const axios = require('axios');
-const { sendFcmNotification } = require('../utils/fcm');
+// const { sendFcmNotification } = require('../utils/fcm');
 const { kirimNotifikasiBanjirTerbaru } = require('../utils/banjirNotifier');
 const { kirimNotifikasiCuaca } = require('../utils/cuacaNotifier');
 const cron = require('node-cron');
@@ -279,31 +279,31 @@ exports.checkWeatherWarning = async (req, res) => {
   }
 };
 
-exports.broadcastTestNotification = async (req, res) => {
-  try {
-    const { title, body } = req.body;
-    const { rows } = await pool.query('SELECT token FROM sigab_app.fcm_tokens');
-    const tokens = rows.map(r => r.token);
-    let success = 0, fail = 0;
-    for (const token of tokens) {
-      try {
-        await sendFcmNotification(token, title || 'Tes Notifikasi', body || 'Ini adalah pesan tes dari backend!');
-        success++;
-      } catch (e) {
-        console.error(`[FCM ERROR] Token: ${token}`);
-        if (e?.response?.data) {
-          console.error('[FCM ERROR] Response data:', e.response.data);
-        } else {
-          console.error('[FCM ERROR] Message:', e.message);
-        }
-        fail++;
-      }
-    }
-    res.json({ status: 'success', sent: success, failed: fail });
-  } catch (e) {
-    res.status(500).json({ status: 'error', message: e.message });
-  }
-};
+// exports.broadcastTestNotification = async (req, res) => {
+//   try {
+//     const { title, body } = req.body;
+//     const { rows } = await pool.query('SELECT token FROM sigab_app.fcm_tokens');
+//     const tokens = rows.map(r => r.token);
+//     let success = 0, fail = 0;
+//     for (const token of tokens) {
+//       try {
+//         await sendFcmNotification(token, title || 'Tes Notifikasi', body || 'Ini adalah pesan tes dari backend!');
+//         success++;
+//       } catch (e) {
+//         console.error(`[FCM ERROR] Token: ${token}`);
+//         if (e?.response?.data) {
+//           console.error('[FCM ERROR] Response data:', e.response.data);
+//         } else {
+//           console.error('[FCM ERROR] Message:', e.message);
+//         }
+//         fail++;
+//       }
+//     }
+//     res.json({ status: 'success', sent: success, failed: fail });
+//   } catch (e) {
+//     res.status(500).json({ status: 'error', message: e.message });
+//   }
+// };
 
 // Endpoint untuk trigger notifikasi peringatan banjir secara manual
 // exports.triggerNotifikasiBanjir = async (req, res) => {
