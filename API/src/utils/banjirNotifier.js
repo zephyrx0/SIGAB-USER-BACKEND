@@ -40,7 +40,7 @@ async function kirimNotifikasiBanjirTerbaru() {
 
     console.log('[BANJIR][FCM] Akan mengirim notifikasi...');
     await sendFcmTopicNotification(
-      'peringatan-umum',
+      'peringatan-banjir',
       'Informasi Banjir Terbaru',
       deskripsi,
       { wilayah_banjir }

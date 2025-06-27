@@ -5,6 +5,21 @@ const { kirimWhatsappKeSemuaUser } = require('./twilioNotifier');
 async function kirimNotifikasiTigaLaporanValid() {
   const pesan = 'Terdapat 3 laporan banjir valid hari ini. Mohon waspada dan perhatikan informasi lebih lanjut.';
   
+  // Cek duplikasi hanya untuk hari ini
+  const cek = await pool.query(
+    `SELECT 1 FROM sigab_app.notifikasi 
+     WHERE judul = $1 
+       AND pesan = $2 
+       AND DATE(created_at) = CURRENT_DATE
+     LIMIT 1`,
+    ['Peringatan Dini Banjir', pesan]
+  );
+  if (cek.rows.length > 0) {
+    console.log('[LAPORAN][CRON] Notifikasi 3 laporan valid sudah pernah dikirim hari ini, skip.');
+    return;
+  }
+  
+  console.log('[LAPORAN][FCM] Akan mengirim notifikasi 3 laporan valid...');
   await sendFcmTopicNotification(
     'peringatan-umum',
     'Peringatan Dini Banjir',
@@ -13,6 +28,13 @@ async function kirimNotifikasiTigaLaporanValid() {
 
   // Kirim WhatsApp ke semua user
   await kirimWhatsappKeSemuaUser(pesan);
+  
+  // Simpan ke tabel notifikasi
+  await pool.query(
+    'INSERT INTO sigab_app.notifikasi (judul, pesan, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) ON CONFLICT DO NOTHING',
+    ['Peringatan Dini Banjir', pesan]
+  );
+  console.log('[LAPORAN][DB] Notifikasi 3 laporan valid berhasil disimpan ke database');
 }
 
 // Fungsi untuk pengecekan dan pengiriman via cron
