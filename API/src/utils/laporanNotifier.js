@@ -3,13 +3,15 @@ const { sendFcmTopicNotification } = require('./fcm');
 const { kirimWhatsappKeSemuaUser } = require('./twilioNotifier');
 
 async function kirimNotifikasiTigaLaporanValid() {
+  const pesan = 'Terdapat 3 laporan banjir valid hari ini. Mohon waspada dan perhatikan informasi lebih lanjut.';
+  
   await sendFcmTopicNotification(
     'peringatan-umum',
     'Peringatan Dini Banjir',
-    'Terdapat 3 laporan banjir valid hari ini. Mohon waspada dan perhatikan informasi lebih lanjut.'
+    pesan
   );
 
-    // Kirim WhatsApp ke semua user
+  // Kirim WhatsApp ke semua user
   await kirimWhatsappKeSemuaUser(pesan);
 }
 

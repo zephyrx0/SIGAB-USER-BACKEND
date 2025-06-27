@@ -93,8 +93,8 @@ async function kirimNotifikasiCuaca() {
       { jam, cuaca }
     );
     console.log('[CUACA][FCM] Selesai kirim notifikasi ke topic: peringatan-umum');
-      // Kirim WhatsApp ke semua user
-    await kirimWhatsappKeSemuaUser(pesan);
+    // Kirim WhatsApp ke semua user
+    await kirimWhatsappKeSemuaUser(deskripsi);
 
     await pool.query(
       'INSERT INTO sigab_app.notifikasi (judul, pesan, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) ON CONFLICT DO NOTHING',
