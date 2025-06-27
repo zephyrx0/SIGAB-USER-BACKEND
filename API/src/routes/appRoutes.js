@@ -198,4 +198,7 @@ router.post('/broadcast-fcm-test', notifikasiController.broadcastTestNotificatio
 // router.post('/notifikasi/test-banjir', notifikasiController.testNotifikasiBanjir);
 // router.post('/notifikasi/test-cuaca', notifikasiController.testNotifikasiCuaca);
 
+// Endpoint untuk menghapus 2 notifikasi terakhir
+router.delete('/delete-last-notifications', notifikasiController.deleteLastNotifications);
+
 module.exports = router;

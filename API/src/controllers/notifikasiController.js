@@ -345,5 +345,26 @@ exports.testNotifikasiCuaca = async (req, res) => {
   }
 };
 
+exports.deleteLastNotifications = async (req, res) => {
+  try {
+    const count = parseInt(req.query.count) || 2;
+    // Ambil id 2 notifikasi terakhir
+    const { rows } = await pool.query(
+      'SELECT id FROM sigab_app.notifikasi ORDER BY created_at DESC LIMIT $1',
+      [count]
+    );
+    const ids = rows.map(r => r.id);
+    if (ids.length > 0) {
+      await pool.query(
+        'DELETE FROM sigab_app.notifikasi WHERE id = ANY($1::int[])',
+        [ids]
+      );
+    }
+    res.json({ status: 'success', deleted: ids.length });
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: e.message });
+  }
+};
+
 module.exports.kirimNotifikasiBanjirTerbaru = kirimNotifikasiBanjirTerbaru;
 module.exports.kirimNotifikasiCuaca = kirimNotifikasiCuaca;
