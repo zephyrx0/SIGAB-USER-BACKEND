@@ -2,8 +2,14 @@ const { GoogleAuth } = require('google-auth-library');
 const axios = require('axios');
 const path = require('path');
 
-// Ganti path berikut ke lokasi file service account JSON kamu
-const serviceAccount = require(path.join(__dirname, '../../sigab-user-9878781f458a.json'));
+// Ambil service account dari environment variable jika ada, jika tidak fallback ke file (untuk development lokal)
+let serviceAccount;
+if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+  serviceAccount = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+} else {
+  // fallback untuk development lokal
+  serviceAccount = require(path.join(__dirname, '../../sigab-user-9878781f458a.json'));
+}
 
 const SCOPES = ['https://www.googleapis.com/auth/firebase.messaging'];
 const PROJECT_ID = serviceAccount.project_id;
