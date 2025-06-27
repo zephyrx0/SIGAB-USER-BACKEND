@@ -29,14 +29,14 @@ async function kirimNotifikasiBanjirTerbaru() {
   }
 
   // Kirim notifikasi
-  console.log('[BANJIR][FCM] Akan mengirim notifikasi ke topic: peringatan-banjir', 'Informasi Banjir Terbaru', deskripsi);
+  console.log('[BANJIR][FCM] Akan mengirim notifikasi ke topic: peringatan-umum', 'Informasi Banjir Terbaru', deskripsi);
   await sendFcmTopicNotification(
-    'peringatan-banjir',
+    'peringatan-umum',
     'Informasi Banjir Terbaru',
     deskripsi,
     { wilayah_banjir }
   );
-  console.log('[BANJIR][FCM] Selesai kirim notifikasi ke topic: peringatan-banjir');
+  console.log('[BANJIR][FCM] Selesai kirim notifikasi ke topic: peringatan-umum');
 
   // Simpan ke tabel notifikasi
   await pool.query(
