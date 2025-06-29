@@ -195,8 +195,14 @@ router.get('/latest-flood-info', informasiBanjirController.getLatestFloodInfo);
 // Endpoint untuk register FCM token
 router.post('/register-fcm-token', fcmController.registerFcmToken);
 
+// Endpoint untuk subscribe ke topic
+router.post('/subscribe-topic', fcmController.subscribeToTopic);
+
 // Endpoint untuk broadcast notifikasi FCM tes
 router.post('/broadcast-fcm-test', notifikasiController.broadcastTestNotification);
+
+// Endpoint untuk mengirim notifikasi manual ke semua token
+router.post('/send-manual-notification', notifikasiController.sendManualNotification);
 
 // router.post('/notifikasi/test-banjir', notifikasiController.testNotifikasiBanjir);
 // router.post('/notifikasi/test-cuaca', notifikasiController.testNotifikasiCuaca);

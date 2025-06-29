@@ -1,6 +1,6 @@
 const pool = require('../config/database');
 const axios = require('axios');
-const { sendFcmNotification, sendFcmTopicNotification } = require('../utils/fcm');
+const { sendFcmNotification, sendFcmTopicNotification, sendFcmToAllTokens } = require('../utils/fcm');
 const { kirimNotifikasiBanjirTerbaru } = require('../utils/banjirNotifier');
 const { kirimNotifikasiCuaca } = require('../utils/cuacaNotifier');
 const cron = require('node-cron');
@@ -347,6 +347,45 @@ exports.clearTodayNotifications = async (req, res) => {
     });
   } catch (e) {
     res.status(500).json({ status: 'error', message: e.message });
+  }
+};
+
+// Endpoint untuk mengirim notifikasi manual ke semua token
+exports.sendManualNotification = async (req, res) => {
+  try {
+    const { title, body, data } = req.body;
+    
+    if (!title || !body) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Title dan body wajib diisi'
+      });
+    }
+
+    // Simpan ke database
+    await pool.query(
+      'INSERT INTO sigab_app.notifikasi (judul, pesan, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())',
+      [title, body]
+    );
+
+    // Kirim ke semua token terdaftar
+    const result = await sendFcmToAllTokens(title, body, data || {});
+
+    res.json({
+      status: 'success',
+      message: 'Notifikasi manual berhasil dikirim',
+      data: {
+        sent: result.success,
+        failed: result.fail,
+        total: result.success + result.fail
+      }
+    });
+  } catch (error) {
+    console.error('Error sending manual notification:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Gagal mengirim notifikasi manual'
+    });
   }
 };
 

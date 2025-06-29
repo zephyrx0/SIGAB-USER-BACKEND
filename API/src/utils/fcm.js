@@ -28,37 +28,32 @@ async function getAccessToken() {
   return accessToken.token;
 }
 
-// async function sendFcmNotification(token, title, body, data = {}) {
-//   const accessToken = await getAccessToken();
-//   const url = `https://fcm.googleapis.com/v1/projects/${PROJECT_ID}/messages:send`;
-
-//   const message = {
-//     message: {
-//       token,
-//       notification: { title, body },
-//       data,
-//     },
-//   };
-
-//   const response = await axios.post(url, message, {
-//     headers: {
-//       'Authorization': `Bearer ${accessToken}`,
-//       'Content-Type': 'application/json',
-//     },
-//   });
-
-//   return response.data;
-// }
-
-async function sendFcmTopicNotification(topic, title, body, data = {}) {
+// Fungsi untuk kirim notifikasi ke token spesifik (disimpan untuk device offline)
+async function sendFcmNotification(token, title, body, data = {}) {
   const accessToken = await getAccessToken();
   const url = `https://fcm.googleapis.com/v1/projects/${PROJECT_ID}/messages:send`;
 
   const message = {
     message: {
-      topic,
+      token,
       notification: { title, body },
       data,
+      android: {
+        priority: 'high',
+        notification: {
+          priority: 'high',
+          default_sound: true,
+          default_vibrate_timings: true,
+        }
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1,
+          }
+        }
+      }
     },
   };
 
@@ -72,4 +67,90 @@ async function sendFcmTopicNotification(topic, title, body, data = {}) {
   return response.data;
 }
 
-module.exports = { sendFcmTopicNotification };
+// Fungsi untuk subscribe token ke topic
+async function subscribeToTopic(token, topic) {
+  const accessToken = await getAccessToken();
+  const url = `https://iid.googleapis.com/iid/v1:batchAdd`;
+
+  const response = await axios.post(url, {
+    to: topic,
+    registration_tokens: [token]
+  }, {
+    headers: {
+      'Authorization': `key=${process.env.FIREBASE_SERVER_KEY || 'YOUR_SERVER_KEY'}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  return response.data;
+}
+
+// Fungsi untuk kirim notifikasi ke semua token terdaftar (untuk offline support)
+async function sendFcmToAllTokens(title, body, data = {}) {
+  const pool = require('../config/database');
+  const { rows } = await pool.query('SELECT token FROM sigab_app.fcm_tokens WHERE token IS NOT NULL');
+  const tokens = rows.map(r => r.token);
+  
+  let success = 0, fail = 0;
+  const results = [];
+
+  for (const token of tokens) {
+    try {
+      await sendFcmNotification(token, title, body, data);
+      success++;
+      results.push({ token, status: 'success' });
+    } catch (error) {
+      fail++;
+      results.push({ token, status: 'failed', error: error.message });
+      console.error(`[FCM ERROR] Token: ${token}`, error.message);
+    }
+  }
+
+  console.log(`[FCM] Sent: ${success}, Failed: ${fail}`);
+  return { success, fail, results };
+}
+
+async function sendFcmTopicNotification(topic, title, body, data = {}) {
+  const accessToken = await getAccessToken();
+  const url = `https://fcm.googleapis.com/v1/projects/${PROJECT_ID}/messages:send`;
+
+  const message = {
+    message: {
+      topic,
+      notification: { title, body },
+      data,
+      android: {
+        priority: 'high',
+        notification: {
+          priority: 'high',
+          default_sound: true,
+          default_vibrate_timings: true,
+        }
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1,
+          }
+        }
+      }
+    },
+  };
+
+  const response = await axios.post(url, message, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  return response.data;
+}
+
+module.exports = { 
+  sendFcmTopicNotification, 
+  sendFcmNotification, 
+  sendFcmToAllTokens,
+  subscribeToTopic 
+};

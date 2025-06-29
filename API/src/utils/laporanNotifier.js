@@ -1,5 +1,5 @@
 const pool = require('../config/database');
-const { sendFcmTopicNotification } = require('./fcm');
+const { sendFcmTopicNotification, sendFcmToAllTokens } = require('./fcm');
 const { kirimWhatsappKeSemuaUser } = require('./twilioNotifier');
 
 async function kirimNotifikasiTigaLaporanValid() {
@@ -19,6 +19,7 @@ async function kirimNotifikasiTigaLaporanValid() {
     console.log('[LAPORAN][CRON] Notifikasi sudah pernah dikirim hari ini, skip.');
     return;
   }
+  
   // Simpan ke tabel notifikasi
   await pool.query(
     `INSERT INTO sigab_app.notifikasi (judul, pesan, created_at, updated_at)
@@ -28,12 +29,32 @@ async function kirimNotifikasiTigaLaporanValid() {
       'Terdapat 3 laporan banjir valid hari ini. Mohon waspada dan perhatikan informasi lebih lanjut.'
     ]
   );
-  // Kirim ke FCM
-  await sendFcmTopicNotification(
-    'peringatan-umum',
-    'Peringatan Dini Banjir',
-    'Terdapat 3 laporan banjir valid hari ini. Mohon waspada dan perhatikan informasi lebih lanjut.'
-  );
+  
+  // Kirim ke FCM Topic (untuk device online)
+  try {
+    await sendFcmTopicNotification(
+      'peringatan-umum',
+      'Peringatan Dini Banjir',
+      'Terdapat 3 laporan banjir valid hari ini. Mohon waspada dan perhatikan informasi lebih lanjut.',
+      { type: 'laporan' }
+    );
+    console.log('[LAPORAN][FCM-TOPIC] Notifikasi topic berhasil dikirim');
+  } catch (topicError) {
+    console.error('[LAPORAN][FCM-TOPIC] Error:', topicError.message);
+  }
+
+  // Kirim ke semua token terdaftar (untuk device offline)
+  try {
+    const fcmResult = await sendFcmToAllTokens(
+      'Peringatan Dini Banjir',
+      'Terdapat 3 laporan banjir valid hari ini. Mohon waspada dan perhatikan informasi lebih lanjut.',
+      { type: 'laporan' }
+    );
+    console.log(`[LAPORAN][FCM-TOKENS] Sent: ${fcmResult.success}, Failed: ${fcmResult.fail}`);
+  } catch (tokenError) {
+    console.error('[LAPORAN][FCM-TOKENS] Error:', tokenError.message);
+  }
+  
   // Kirim WhatsApp ke semua user
   await kirimWhatsappKeSemuaUser('Terdapat 3 laporan banjir valid hari ini. Mohon waspada dan perhatikan informasi lebih lanjut.');
 }

@@ -1,5 +1,5 @@
 const pool = require('../config/database');
-const { sendFcmTopicNotification } = require('./fcm');
+const { sendFcmTopicNotification, sendFcmToAllTokens } = require('./fcm');
 const axios = require('axios');
 const isDemo = process.env.DEMO_MODE === 'true';
 const { kirimWhatsappKeSemuaUser } = require('./twilioNotifier');
@@ -100,14 +100,30 @@ async function kirimNotifikasiCuaca() {
   );
   console.log('[CUACA][DB] Notifikasi berhasil disimpan ke database');
 
-  // Kirim ke FCM
-  await sendFcmTopicNotification(
-    'peringatan-umum',
-    'Peringatan Dini Cuaca',
-    deskripsi,
-    { jam, cuaca }
-  );
-  console.log('[CUACA][FCM] Selesai kirim notifikasi ke topic: peringatan-umum');
+  // Kirim ke FCM Topic (untuk device online)
+  try {
+    await sendFcmTopicNotification(
+      'peringatan-umum',
+      'Peringatan Dini Cuaca',
+      deskripsi,
+      { jam, cuaca, type: 'cuaca' }
+    );
+    console.log('[CUACA][FCM-TOPIC] Selesai kirim notifikasi ke topic: peringatan-umum');
+  } catch (topicError) {
+    console.error('[CUACA][FCM-TOPIC] Error:', topicError.message);
+  }
+
+  // Kirim ke semua token terdaftar (untuk device offline)
+  try {
+    const fcmResult = await sendFcmToAllTokens(
+      'Peringatan Dini Cuaca',
+      deskripsi,
+      { jam, cuaca, type: 'cuaca' }
+    );
+    console.log(`[CUACA][FCM-TOKENS] Sent: ${fcmResult.success}, Failed: ${fcmResult.fail}`);
+  } catch (tokenError) {
+    console.error('[CUACA][FCM-TOKENS] Error:', tokenError.message);
+  }
 
   // Kirim WhatsApp ke semua user
   await kirimWhatsappKeSemuaUser(deskripsi);
