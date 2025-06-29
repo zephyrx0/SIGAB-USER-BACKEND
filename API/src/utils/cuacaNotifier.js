@@ -1,5 +1,5 @@
 const pool = require('../config/database');
-const { sendFcmToAllTokens } = require('./fcm');
+const { sendFcmHybridNotification } = require('./fcm');
 const axios = require('axios');
 const isDemo = process.env.DEMO_MODE === 'true';
 const { kirimWhatsappKeSemuaUser } = require('./twilioNotifier');
@@ -100,22 +100,21 @@ async function kirimNotifikasiCuaca() {
   );
   console.log('[CUACA][DB] Notifikasi berhasil disimpan ke database');
 
-  // Kirim ke semua token terdaftar (untuk device online dan offline)
+  // Kirim dengan hybrid approach (topic + individual untuk offline storage)
   try {
-    const fcmResult = await sendFcmToAllTokens(
+    const fcmResult = await sendFcmHybridNotification(
       'Peringatan Dini Cuaca',
       deskripsi,
       { 
         jam, 
         cuaca, 
         type: 'cuaca',
-        notification_id: Date.now().toString(),
-        timestamp: new Date().toISOString()
+        source: 'cron_job'
       }
     );
-    console.log(`[CUACA][FCM] Sent: ${fcmResult.success}, Failed: ${fcmResult.fail}, Invalid removed: ${fcmResult.invalidTokens?.length || 0}`);
-  } catch (tokenError) {
-    console.error('[CUACA][FCM] Error:', tokenError.message);
+    console.log(`[CUACA][FCM HYBRID] Topic: ${fcmResult.topicSuccess ? 'SUCCESS' : 'FAILED'}, Individual: ${fcmResult.individualSuccess} sent, ${fcmResult.individualFailed} failed, Invalid removed: ${fcmResult.invalidTokens?.length || 0}`);
+  } catch (fcmError) {
+    console.error('[CUACA][FCM HYBRID] Error:', fcmError.message);
   }
 
   // Kirim WhatsApp ke semua user

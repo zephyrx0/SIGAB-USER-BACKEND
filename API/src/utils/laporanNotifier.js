@@ -1,5 +1,5 @@
 const pool = require('../config/database');
-const { sendFcmToAllTokens } = require('./fcm');
+const { sendFcmHybridNotification } = require('./fcm');
 const { kirimWhatsappKeSemuaUser } = require('./twilioNotifier');
 
 async function kirimNotifikasiTigaLaporanValid() {
@@ -30,20 +30,19 @@ async function kirimNotifikasiTigaLaporanValid() {
     ]
   );
   
-  // Kirim ke semua token terdaftar (untuk device online dan offline)
+  // Kirim dengan hybrid approach (topic + individual untuk offline storage)
   try {
-    const fcmResult = await sendFcmToAllTokens(
+    const fcmResult = await sendFcmHybridNotification(
       'Peringatan Laporan Banjir',
       'Terdapat 3 laporan banjir valid hari ini. Mohon waspada dan perhatikan informasi lebih lanjut.',
       { 
         type: 'laporan',
-        notification_id: Date.now().toString(),
-        timestamp: new Date().toISOString()
+        source: 'cron_job'
       }
     );
-    console.log(`[LAPORAN][FCM] Sent: ${fcmResult.success}, Failed: ${fcmResult.fail}, Invalid removed: ${fcmResult.invalidTokens?.length || 0}`);
-  } catch (tokenError) {
-    console.error('[LAPORAN][FCM] Error:', tokenError.message);
+    console.log(`[LAPORAN][FCM HYBRID] Topic: ${fcmResult.topicSuccess ? 'SUCCESS' : 'FAILED'}, Individual: ${fcmResult.individualSuccess} sent, ${fcmResult.individualFailed} failed, Invalid removed: ${fcmResult.invalidTokens?.length || 0}`);
+  } catch (fcmError) {
+    console.error('[LAPORAN][FCM HYBRID] Error:', fcmError.message);
   }
   
   // Kirim WhatsApp ke semua user

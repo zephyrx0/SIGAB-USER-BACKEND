@@ -213,6 +213,9 @@ router.post('/send-manual-notification', notifikasiController.sendManualNotifica
 // Endpoint untuk test FCM sederhana
 router.post('/test-fcm-simple', notifikasiController.testFcmSimple);
 
+// Endpoint untuk test FCM hybrid
+router.post('/test-fcm-hybrid', notifikasiController.testFcmHybrid);
+
 // Endpoint untuk mengirim ulang notifikasi yang terlewat
 router.post('/resend-missed-notifications', notifikasiController.resendMissedNotifications);
 

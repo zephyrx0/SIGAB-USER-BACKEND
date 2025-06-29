@@ -6,25 +6,36 @@ Backend API untuk aplikasi SIGAB (Sistem Informasi Geografis Banjir) dengan fitu
 
 Sistem notifikasi telah diperbaiki untuk mendukung pengiriman notifikasi ke device yang offline. Ketika device kembali online, notifikasi yang terlewat akan otomatis diterima.
 
-### Mekanisme Notifikasi Offline
-
-1. **Single Channel Approach**: Menggunakan hanya individual token messaging untuk menghindari duplikasi
-2. **Database Storage**: Semua notifikasi disimpan di database dengan timestamp
-3. **FCM Offline Support**: FCM menyimpan notifikasi untuk device offline
-4. **Automatic Retry**: FCM mengirim ulang notifikasi saat device online
-5. **Manual Resend**: Endpoint untuk mengirim ulang notifikasi yang terlewat
-
-### Perbaikan Duplikasi Notifikasi
+### Mekanisme Notifikasi Offline - Hybrid Approach
 
 **Masalah Sebelumnya:**
-- Topic messaging + individual token messaging = duplikasi
-- Device online menerima 2 notifikasi yang sama
-- Hanya notifikasi terakhir yang muncul saat device online
+- FCM hanya menyimpan notifikasi terbaru untuk device offline
+- Device online hanya menerima 1 notifikasi saat kembali online
+- Topic messaging tidak menyimpan notifikasi untuk offline
 
-**Solusi:**
-- Menggunakan hanya individual token messaging
-- Menambahkan unique notification_id untuk tracking
-- Endpoint resend untuk notifikasi yang terlewat
+**Solusi Hybrid Approach:**
+1. **Topic Messaging** - Untuk device online (immediate delivery)
+2. **Individual Token Messaging** - Untuk device offline (offline storage)
+3. **Unique Notification ID** - Untuk tracking dan menghindari duplikasi
+4. **Rate Limiting** - Delay antar pengiriman untuk menghindari throttling
+
+### Cara Kerja Hybrid Approach
+
+```javascript
+// 1. Kirim ke topic untuk device online
+await sendFcmTopicNotification('peringatan-umum', title, body, data);
+
+// 2. Kirim ke individual tokens untuk offline storage
+for (const token of tokens) {
+  await sendFcmNotification(token, title, body, data);
+}
+```
+
+**Keuntungan:**
+- ✅ **Device online** - Menerima notifikasi langsung via topic
+- ✅ **Device offline** - FCM menyimpan notifikasi untuk setiap token
+- ✅ **No duplication** - Unique notification_id mencegah duplikasi
+- ✅ **All notifications** - Device offline akan menerima semua notifikasi saat online
 
 ### Endpoints Notifikasi
 
@@ -59,9 +70,14 @@ Content-Type: application/json
 }
 ```
 
-#### Test FCM Sederhana (Recommended)
+#### Test FCM Sederhana
 ```http
 POST /api/test-fcm-simple
+```
+
+#### Test FCM Hybrid (Recommended)
+```http
+POST /api/test-fcm-hybrid
 ```
 
 #### Resend Missed Notifications
@@ -113,10 +129,11 @@ GET /api/notification-history?installed_at=2024-01-01T00:00:00Z
 ### Testing Notifikasi Offline
 
 1. **Register Device**: Pastikan device terdaftar dengan FCM token
-2. **Matikan Internet**: Putuskan koneksi internet device
-3. **Kirim Notifikasi**: Gunakan endpoint manual atau trigger notifikasi otomatis
-4. **Hidupkan Internet**: Kembalikan koneksi internet
-5. **Cek Notifikasi**: Device akan menerima notifikasi yang terlewat
+2. **Test Hybrid**: Gunakan endpoint hybrid untuk memastikan sistem bekerja
+3. **Matikan Internet**: Putuskan koneksi internet device
+4. **Kirim Notifikasi**: Gunakan endpoint manual atau trigger notifikasi otomatis
+5. **Hidupkan Internet**: Kembalikan koneksi internet
+6. **Cek Notifikasi**: Device akan menerima semua notifikasi yang terlewat
 
 ### Resend Missed Notifications
 
@@ -164,9 +181,9 @@ Jika Anda melihat error seperti ini:
 ```
 
 **Solusi:**
-1. **Gunakan endpoint test sederhana**:
+1. **Gunakan endpoint test hybrid**:
    ```bash
-   curl -X POST http://localhost:3000/api/test-fcm-simple
+   curl -X POST http://localhost:3000/api/test-fcm-hybrid
    ```
 
 2. **Restart server** untuk menerapkan perbaikan payload FCM
@@ -255,8 +272,8 @@ CREATE TABLE sigab_app.notifikasi (
 
 ## Monitoring dan Logs
 
-### Log FCM
-- `[FCM] Sent: X, Failed: Y, Invalid removed: Z` - Statistik pengiriman notifikasi
+### Log FCM Hybrid
+- `[FCM HYBRID] Topic: SUCCESS/FAILED, Individual: X sent, Y failed, Z invalid removed` - Statistik hybrid notification
 - `[FCM CLEANUP]` - Log cleanup token invalid
 - `[FCM ERROR]` - Error detail untuk debugging
 - `[RESEND]` - Log pengiriman ulang notifikasi
@@ -270,7 +287,10 @@ CREATE TABLE sigab_app.notifikasi (
 ### Quick Test Commands
 
 ```bash
-# Test FCM sederhana (recommended)
+# Test FCM hybrid (recommended)
+curl -X POST http://localhost:3000/api/test-fcm-hybrid
+
+# Test FCM sederhana
 curl -X POST http://localhost:3000/api/test-fcm-simple
 
 # Cek statistik notifikasi
@@ -288,11 +308,13 @@ curl -X POST http://localhost:3000/api/resend-missed-notifications \
   -d '{"token": "your_token_here"}'
 ```
 
-### Keuntungan Solusi Baru
+### Keuntungan Hybrid Approach
 
-✅ **Tidak ada duplikasi** - Satu notifikasi per device  
-✅ **Offline support** - FCM menyimpan notifikasi untuk device offline  
-✅ **Manual resend** - Endpoint untuk mengirim ulang notifikasi terlewat  
-✅ **Better tracking** - Unique notification_id untuk setiap notifikasi  
-✅ **Statistics** - Monitoring detail untuk notifikasi dan token  
-✅ **Automatic cleanup** - Token invalid dibersihkan otomatis 
+✅ **Immediate delivery** - Device online menerima notifikasi langsung  
+✅ **Offline storage** - FCM menyimpan notifikasi untuk device offline  
+✅ **All notifications** - Device offline akan menerima semua notifikasi saat online  
+✅ **No duplication** - Unique notification_id mencegah duplikasi  
+✅ **Better tracking** - Delivery method tracking untuk monitoring  
+✅ **Rate limiting** - Delay antar pengiriman untuk menghindari throttling  
+✅ **Automatic cleanup** - Token invalid dibersihkan otomatis  
+✅ **Manual resend** - Endpoint untuk mengirim ulang notifikasi terlewat 

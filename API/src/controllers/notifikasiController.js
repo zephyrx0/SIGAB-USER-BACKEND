@@ -574,5 +574,40 @@ exports.getNotificationStats = async (req, res) => {
   }
 };
 
+// Endpoint untuk test FCM hybrid (topic + individual)
+exports.testFcmHybrid = async (req, res) => {
+  try {
+    const { sendFcmHybridNotification } = require('../utils/fcm');
+    
+    const result = await sendFcmHybridNotification(
+      'Test Notifikasi Hybrid',
+      'Ini adalah test notifikasi dengan hybrid approach (topic + individual)',
+      { 
+        test: 'hybrid', 
+        timestamp: Date.now().toString(),
+        source: 'manual_test'
+      }
+    );
+
+    res.json({
+      status: 'success',
+      message: 'Test FCM hybrid selesai',
+      data: {
+        topic_success: result.topicSuccess,
+        individual_sent: result.individualSuccess,
+        individual_failed: result.individualFailed,
+        invalid_removed: result.invalidTokens?.length || 0,
+        notification_id: result.notificationId
+      }
+    });
+  } catch (error) {
+    console.error('Error testing FCM hybrid:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Gagal test FCM hybrid'
+    });
+  }
+};
+
 module.exports.kirimNotifikasiBanjirTerbaru = kirimNotifikasiBanjirTerbaru;
 module.exports.kirimNotifikasiCuaca = kirimNotifikasiCuaca;

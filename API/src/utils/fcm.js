@@ -123,6 +123,79 @@ async function subscribeToTopic(token, topic) {
   }
 }
 
+// Fungsi untuk kirim notifikasi dengan hybrid approach (topic + individual untuk offline)
+async function sendFcmHybridNotification(title, body, data = {}) {
+  const pool = require('../config/database');
+  
+  // Generate unique notification ID
+  const notificationId = Date.now().toString();
+  const enhancedData = {
+    ...data,
+    notification_id: notificationId,
+    timestamp: new Date().toISOString(),
+    delivery_method: 'hybrid'
+  };
+
+  let topicSuccess = false;
+  let individualSuccess = 0;
+  let individualFailed = 0;
+  const invalidTokens = [];
+
+  // 1. Kirim ke topic untuk device online (immediate delivery)
+  try {
+    await sendFcmTopicNotification('peringatan-umum', title, body, enhancedData);
+    topicSuccess = true;
+    console.log('[FCM HYBRID] Topic notification sent successfully');
+  } catch (topicError) {
+    console.error('[FCM HYBRID] Topic notification failed:', topicError.message);
+  }
+
+  // 2. Kirim ke individual tokens untuk offline storage
+  const { rows } = await pool.query('SELECT token FROM sigab_app.fcm_tokens WHERE token IS NOT NULL');
+  const tokens = rows.map(r => r.token);
+
+  for (const token of tokens) {
+    try {
+      // Add small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      await sendFcmNotification(token, title, body, enhancedData);
+      individualSuccess++;
+    } catch (error) {
+      individualFailed++;
+      
+      if (error.message.includes('unregistered') || error.message.includes('not found')) {
+        invalidTokens.push(token);
+      }
+      
+      console.error(`[FCM HYBRID] Individual notification failed for token: ${token}`, error.message);
+    }
+  }
+
+  // Remove invalid tokens
+  if (invalidTokens.length > 0) {
+    try {
+      await pool.query(
+        'DELETE FROM sigab_app.fcm_tokens WHERE token = ANY($1::text[])',
+        [invalidTokens]
+      );
+      console.log(`[FCM HYBRID] Removed ${invalidTokens.length} invalid tokens`);
+    } catch (dbError) {
+      console.error('[FCM HYBRID] Error removing invalid tokens:', dbError.message);
+    }
+  }
+
+  console.log(`[FCM HYBRID] Topic: ${topicSuccess ? 'SUCCESS' : 'FAILED'}, Individual: ${individualSuccess} sent, ${individualFailed} failed, ${invalidTokens.length} invalid removed`);
+  
+  return {
+    topicSuccess,
+    individualSuccess,
+    individualFailed,
+    invalidTokens,
+    notificationId
+  };
+}
+
 // Fungsi untuk kirim notifikasi ke semua token terdaftar (untuk offline support)
 async function sendFcmToAllTokens(title, body, data = {}) {
   const pool = require('../config/database');
@@ -267,6 +340,7 @@ module.exports = {
   sendFcmTopicNotification, 
   sendFcmNotification, 
   sendFcmToAllTokens,
+  sendFcmHybridNotification,
   subscribeToTopic,
   cleanupInvalidTokens
 };
