@@ -429,5 +429,150 @@ exports.testFcmSimple = async (req, res) => {
   }
 };
 
+// Fungsi untuk mengirim ulang notifikasi yang terlewat ke device tertentu
+exports.resendMissedNotifications = async (req, res) => {
+  try {
+    const { token, last_seen_at } = req.body;
+    
+    if (!token) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Token FCM diperlukan'
+      });
+    }
+
+    // Jika last_seen_at tidak ada, ambil notifikasi 7 hari terakhir
+    const cutoffDate = last_seen_at || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    // Ambil notifikasi yang dibuat setelah last_seen_at
+    const result = await pool.query(
+      `SELECT *
+       FROM sigab_app.notifikasi
+       WHERE created_at >= $1::timestamp with time zone
+       ORDER BY created_at ASC
+       LIMIT 20`,
+      [cutoffDate]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(200).json({
+        status: 'success',
+        message: 'Tidak ada notifikasi yang terlewat',
+        data: []
+      });
+    }
+
+    // Kirim ulang setiap notifikasi yang terlewat
+    const { sendFcmNotification } = require('../utils/fcm');
+    let sentCount = 0;
+    let failedCount = 0;
+
+    for (const notification of result.rows) {
+      try {
+        await sendFcmNotification(
+          token,
+          notification.judul,
+          notification.pesan,
+          {
+            notification_id: notification.id_notifikasi.toString(),
+            type: 'missed_notification',
+            timestamp: notification.created_at.toISOString()
+          }
+        );
+        sentCount++;
+        
+        // Delay kecil antara pengiriman untuk menghindari rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (error) {
+        console.error(`[RESEND] Failed to send notification ${notification.id_notifikasi}:`, error.message);
+        failedCount++;
+      }
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Pengiriman ulang notifikasi selesai',
+      data: {
+        total_missed: result.rows.length,
+        sent: sentCount,
+        failed: failedCount,
+        notifications: result.rows
+      }
+    });
+  } catch (error) {
+    console.error('Error resending missed notifications:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Terjadi kesalahan saat mengirim ulang notifikasi'
+    });
+  }
+};
+
+// Fungsi untuk mendapatkan statistik notifikasi
+exports.getNotificationStats = async (req, res) => {
+  try {
+    // Total notifikasi
+    const totalResult = await pool.query('SELECT COUNT(*) as total FROM sigab_app.notifikasi');
+    const totalNotifications = parseInt(totalResult.rows[0].total);
+
+    // Notifikasi hari ini
+    const todayResult = await pool.query(
+      'SELECT COUNT(*) as today FROM sigab_app.notifikasi WHERE DATE(created_at) = CURRENT_DATE'
+    );
+    const todayNotifications = parseInt(todayResult.rows[0].today);
+
+    // Notifikasi 7 hari terakhir
+    const weekResult = await pool.query(
+      'SELECT COUNT(*) as week FROM sigab_app.notifikasi WHERE created_at >= NOW() - INTERVAL \'7 days\''
+    );
+    const weekNotifications = parseInt(weekResult.rows[0].week);
+
+    // Notifikasi terbaru (5 terakhir)
+    const recentResult = await pool.query(
+      'SELECT id_notifikasi, judul, pesan, created_at FROM sigab_app.notifikasi ORDER BY created_at DESC LIMIT 5'
+    );
+
+    // Statistik per jenis notifikasi
+    const typeStatsResult = await pool.query(
+      `SELECT 
+        CASE 
+          WHEN judul LIKE '%Banjir%' THEN 'banjir'
+          WHEN judul LIKE '%Cuaca%' THEN 'cuaca'
+          WHEN judul LIKE '%Laporan%' THEN 'laporan'
+          ELSE 'lainnya'
+        END as type,
+        COUNT(*) as count
+       FROM sigab_app.notifikasi 
+       WHERE created_at >= NOW() - INTERVAL '7 days'
+       GROUP BY 
+        CASE 
+          WHEN judul LIKE '%Banjir%' THEN 'banjir'
+          WHEN judul LIKE '%Cuaca%' THEN 'cuaca'
+          WHEN judul LIKE '%Laporan%' THEN 'laporan'
+          ELSE 'lainnya'
+        END
+       ORDER BY count DESC`
+    );
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        total_notifications: totalNotifications,
+        today_notifications: todayNotifications,
+        week_notifications: weekNotifications,
+        recent_notifications: recentResult.rows,
+        type_statistics: typeStatsResult.rows,
+        last_updated: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Error getting notification stats:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Terjadi kesalahan saat mengambil statistik notifikasi'
+    });
+  }
+};
+
 module.exports.kirimNotifikasiBanjirTerbaru = kirimNotifikasiBanjirTerbaru;
 module.exports.kirimNotifikasiCuaca = kirimNotifikasiCuaca;

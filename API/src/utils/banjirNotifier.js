@@ -1,5 +1,5 @@
 const pool = require('../config/database');
-const { sendFcmTopicNotification, sendFcmToAllTokens } = require('./fcm');
+const { sendFcmToAllTokens } = require('./fcm');
 const { kirimWhatsappKeSemuaUser } = require('./twilioNotifier');
 
 // Flag untuk menandakan job sedang berjalan
@@ -46,29 +46,21 @@ async function kirimNotifikasiBanjirTerbaru() {
     );
     console.log('[BANJIR][DB] Notifikasi berhasil disimpan ke database');
 
-    // Kirim ke FCM Topic (untuk device online)
-    try {
-      await sendFcmTopicNotification(
-        'peringatan-umum',
-        'Informasi Banjir Terbaru',
-        deskripsi,
-        { wilayah_banjir, type: 'banjir' }
-      );
-      console.log('[BANJIR][FCM-TOPIC] Notifikasi topic berhasil dikirim');
-    } catch (topicError) {
-      console.error('[BANJIR][FCM-TOPIC] Error:', topicError.message);
-    }
-
-    // Kirim ke semua token terdaftar (untuk device offline)
+    // Kirim ke semua token terdaftar (untuk device online dan offline)
     try {
       const fcmResult = await sendFcmToAllTokens(
         'Informasi Banjir Terbaru',
         deskripsi,
-        { wilayah_banjir, type: 'banjir' }
+        { 
+          wilayah_banjir, 
+          type: 'banjir',
+          notification_id: Date.now().toString(),
+          timestamp: new Date().toISOString()
+        }
       );
-      console.log(`[BANJIR][FCM-TOKENS] Sent: ${fcmResult.success}, Failed: ${fcmResult.fail}`);
+      console.log(`[BANJIR][FCM] Sent: ${fcmResult.success}, Failed: ${fcmResult.fail}, Invalid removed: ${fcmResult.invalidTokens?.length || 0}`);
     } catch (tokenError) {
-      console.error('[BANJIR][FCM-TOKENS] Error:', tokenError.message);
+      console.error('[BANJIR][FCM] Error:', tokenError.message);
     }
 
     // Kirim WhatsApp ke semua user

@@ -1,5 +1,5 @@
 const pool = require('../config/database');
-const { sendFcmTopicNotification, sendFcmToAllTokens } = require('./fcm');
+const { sendFcmToAllTokens } = require('./fcm');
 const { kirimWhatsappKeSemuaUser } = require('./twilioNotifier');
 
 async function kirimNotifikasiTigaLaporanValid() {
@@ -11,7 +11,7 @@ async function kirimNotifikasiTigaLaporanValid() {
      AND DATE(created_at) = CURRENT_DATE
      LIMIT 1`,
     [
-      'Peringatan Dini Banjir',
+      'Peringatan Laporan Banjir',
       'Terdapat 3 laporan banjir valid hari ini. Mohon waspada dan perhatikan informasi lebih lanjut.'
     ]
   );
@@ -25,34 +25,25 @@ async function kirimNotifikasiTigaLaporanValid() {
     `INSERT INTO sigab_app.notifikasi (judul, pesan, created_at, updated_at)
      VALUES ($1, $2, NOW(), NOW())`,
     [
-      'Peringatan Dini Banjir',
+      'Peringatan Laporan Banjir',
       'Terdapat 3 laporan banjir valid hari ini. Mohon waspada dan perhatikan informasi lebih lanjut.'
     ]
   );
   
-  // Kirim ke FCM Topic (untuk device online)
-  try {
-    await sendFcmTopicNotification(
-      'peringatan-umum',
-      'Peringatan Dini Banjir',
-      'Terdapat 3 laporan banjir valid hari ini. Mohon waspada dan perhatikan informasi lebih lanjut.',
-      { type: 'laporan' }
-    );
-    console.log('[LAPORAN][FCM-TOPIC] Notifikasi topic berhasil dikirim');
-  } catch (topicError) {
-    console.error('[LAPORAN][FCM-TOPIC] Error:', topicError.message);
-  }
-
-  // Kirim ke semua token terdaftar (untuk device offline)
+  // Kirim ke semua token terdaftar (untuk device online dan offline)
   try {
     const fcmResult = await sendFcmToAllTokens(
-      'Peringatan Dini Banjir',
+      'Peringatan Laporan Banjir',
       'Terdapat 3 laporan banjir valid hari ini. Mohon waspada dan perhatikan informasi lebih lanjut.',
-      { type: 'laporan' }
+      { 
+        type: 'laporan',
+        notification_id: Date.now().toString(),
+        timestamp: new Date().toISOString()
+      }
     );
-    console.log(`[LAPORAN][FCM-TOKENS] Sent: ${fcmResult.success}, Failed: ${fcmResult.fail}`);
+    console.log(`[LAPORAN][FCM] Sent: ${fcmResult.success}, Failed: ${fcmResult.fail}, Invalid removed: ${fcmResult.invalidTokens?.length || 0}`);
   } catch (tokenError) {
-    console.error('[LAPORAN][FCM-TOKENS] Error:', tokenError.message);
+    console.error('[LAPORAN][FCM] Error:', tokenError.message);
   }
   
   // Kirim WhatsApp ke semua user
@@ -77,7 +68,7 @@ async function cekDanKirimNotifikasiTigaLaporanValid() {
      WHERE judul = $1
      AND DATE(created_at) = CURRENT_DATE
      LIMIT 1`,
-    ['Peringatan Dini Banjir']
+    ['Peringatan Laporan Banjir']
   );
 
   if (totalValid >= 3 && notif.rows.length === 0) {

@@ -207,17 +207,20 @@ router.post('/cleanup-invalid-tokens', fcmController.cleanupInvalidTokens);
 // Endpoint untuk mendapatkan statistik FCM tokens
 router.get('/fcm-token-stats', fcmController.getFcmTokenStats);
 
-// Endpoint untuk broadcast notifikasi FCM tes
-router.post('/broadcast-fcm-test', notifikasiController.broadcastTestNotification);
-
 // Endpoint untuk mengirim notifikasi manual ke semua token
 router.post('/send-manual-notification', notifikasiController.sendManualNotification);
 
 // Endpoint untuk test FCM sederhana
 router.post('/test-fcm-simple', notifikasiController.testFcmSimple);
 
-// router.post('/notifikasi/test-banjir', notifikasiController.testNotifikasiBanjir);
-// router.post('/notifikasi/test-cuaca', notifikasiController.testNotifikasiCuaca);
+// Endpoint untuk mengirim ulang notifikasi yang terlewat
+router.post('/resend-missed-notifications', notifikasiController.resendMissedNotifications);
+
+// Endpoint untuk mendapatkan statistik notifikasi
+router.get('/notification-stats', notifikasiController.getNotificationStats);
+
+// Endpoint untuk broadcast notifikasi FCM tes
+router.post('/broadcast-fcm-test', notifikasiController.broadcastTestNotification);
 
 // Endpoint untuk menghapus 2 notifikasi terakhir
 router.delete('/delete-last-notifications', notifikasiController.deleteLastNotifications);

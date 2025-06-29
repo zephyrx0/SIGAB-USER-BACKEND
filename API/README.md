@@ -8,10 +8,23 @@ Sistem notifikasi telah diperbaiki untuk mendukung pengiriman notifikasi ke devi
 
 ### Mekanisme Notifikasi Offline
 
-1. **Hybrid Approach**: Menggunakan kombinasi Topic Messaging dan Individual Token Messaging
+1. **Single Channel Approach**: Menggunakan hanya individual token messaging untuk menghindari duplikasi
 2. **Database Storage**: Semua notifikasi disimpan di database dengan timestamp
 3. **FCM Offline Support**: FCM menyimpan notifikasi untuk device offline
 4. **Automatic Retry**: FCM mengirim ulang notifikasi saat device online
+5. **Manual Resend**: Endpoint untuk mengirim ulang notifikasi yang terlewat
+
+### Perbaikan Duplikasi Notifikasi
+
+**Masalah Sebelumnya:**
+- Topic messaging + individual token messaging = duplikasi
+- Device online menerima 2 notifikasi yang sama
+- Hanya notifikasi terakhir yang muncul saat device online
+
+**Solusi:**
+- Menggunakan hanya individual token messaging
+- Menambahkan unique notification_id untuk tracking
+- Endpoint resend untuk notifikasi yang terlewat
 
 ### Endpoints Notifikasi
 
@@ -51,6 +64,22 @@ Content-Type: application/json
 POST /api/test-fcm-simple
 ```
 
+#### Resend Missed Notifications
+```http
+POST /api/resend-missed-notifications
+Content-Type: application/json
+
+{
+  "token": "fcm_token_here",
+  "last_seen_at": "2024-01-01T00:00:00Z" // optional
+}
+```
+
+#### Get Notification Stats
+```http
+GET /api/notification-stats
+```
+
 #### Cleanup Invalid Tokens
 ```http
 POST /api/cleanup-invalid-tokens
@@ -88,6 +117,37 @@ GET /api/notification-history?installed_at=2024-01-01T00:00:00Z
 3. **Kirim Notifikasi**: Gunakan endpoint manual atau trigger notifikasi otomatis
 4. **Hidupkan Internet**: Kembalikan koneksi internet
 5. **Cek Notifikasi**: Device akan menerima notifikasi yang terlewat
+
+### Resend Missed Notifications
+
+Ketika device kembali online, gunakan endpoint ini untuk mengirim ulang notifikasi yang terlewat:
+
+```javascript
+// Frontend implementation
+const resendMissedNotifications = async (token, lastSeenAt) => {
+  try {
+    const response = await fetch('/api/resend-missed-notifications', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        token: token,
+        last_seen_at: lastSeenAt // timestamp terakhir device online
+      })
+    });
+    
+    const result = await response.json();
+    console.log('Resend result:', result);
+    
+    if (result.data.sent > 0) {
+      console.log(`Received ${result.data.sent} missed notifications`);
+    }
+  } catch (error) {
+    console.error('Error resending notifications:', error);
+  }
+};
+```
 
 ### Troubleshooting FCM Errors
 
@@ -196,10 +256,10 @@ CREATE TABLE sigab_app.notifikasi (
 ## Monitoring dan Logs
 
 ### Log FCM
-- `[FCM] Sent: X, Failed: Y` - Statistik pengiriman notifikasi
+- `[FCM] Sent: X, Failed: Y, Invalid removed: Z` - Statistik pengiriman notifikasi
 - `[FCM CLEANUP]` - Log cleanup token invalid
 - `[FCM ERROR]` - Error detail untuk debugging
-- `[FCM TOPIC ERROR]` - Error untuk topic messaging
+- `[RESEND]` - Log pengiriman ulang notifikasi
 
 ### Cron Jobs
 - **Notifikasi Banjir**: Setiap 10 detik
@@ -213,20 +273,26 @@ CREATE TABLE sigab_app.notifikasi (
 # Test FCM sederhana (recommended)
 curl -X POST http://localhost:3000/api/test-fcm-simple
 
+# Cek statistik notifikasi
+curl http://localhost:3000/api/notification-stats
+
 # Cek statistik token
 curl http://localhost:3000/api/fcm-token-stats
 
 # Cleanup token invalid
 curl -X POST http://localhost:3000/api/cleanup-invalid-tokens
+
+# Resend missed notifications (contoh)
+curl -X POST http://localhost:3000/api/resend-missed-notifications \
+  -H "Content-Type: application/json" \
+  -d '{"token": "your_token_here"}'
 ```
 
-# Tambahkan Unique Constraint pada Tabel Notifikasi
+### Keuntungan Solusi Baru
 
-Untuk mencegah duplikasi notifikasi (judul, pesan, tanggal sama) pada tabel sigab_app.notifikasi, jalankan perintah berikut di database:
-
-```sql
-ALTER TABLE sigab_app.notifikasi
-ADD CONSTRAINT unique_notif_per_hari UNIQUE (judul, pesan, created_at::date);
-```
-
-Setelah constraint ini ditambahkan, query insert dengan ON CONFLICT DO NOTHING akan mencegah duplikasi notifikasi. 
+✅ **Tidak ada duplikasi** - Satu notifikasi per device  
+✅ **Offline support** - FCM menyimpan notifikasi untuk device offline  
+✅ **Manual resend** - Endpoint untuk mengirim ulang notifikasi terlewat  
+✅ **Better tracking** - Unique notification_id untuk setiap notifikasi  
+✅ **Statistics** - Monitoring detail untuk notifikasi dan token  
+✅ **Automatic cleanup** - Token invalid dibersihkan otomatis 
