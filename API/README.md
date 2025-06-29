@@ -36,6 +36,26 @@ Content-Type: application/json
 }
 ```
 
+#### Test Token FCM
+```http
+POST /api/test-fcm-token
+Content-Type: application/json
+
+{
+  "token": "fcm_token_here"
+}
+```
+
+#### Cleanup Invalid Tokens
+```http
+POST /api/cleanup-invalid-tokens
+```
+
+#### Get FCM Token Stats
+```http
+GET /api/fcm-token-stats
+```
+
 #### Kirim Notifikasi Manual (Testing)
 ```http
 POST /api/send-manual-notification
@@ -63,6 +83,41 @@ GET /api/notification-history?installed_at=2024-01-01T00:00:00Z
 3. **Kirim Notifikasi**: Gunakan endpoint manual atau trigger notifikasi otomatis
 4. **Hidupkan Internet**: Kembalikan koneksi internet
 5. **Cek Notifikasi**: Device akan menerima notifikasi yang terlewat
+
+### Troubleshooting FCM Errors
+
+#### Error 400 - Invalid Token
+Jika Anda melihat error seperti ini:
+```
+[FCM ERROR] Token: xxx Request failed with status code 400
+```
+
+**Solusi:**
+1. **Test token individual**:
+   ```bash
+   curl -X POST http://localhost:3000/api/test-fcm-token \
+     -H "Content-Type: application/json" \
+     -d '{"token": "your_token_here"}'
+   ```
+
+2. **Cleanup invalid tokens**:
+   ```bash
+   curl -X POST http://localhost:3000/api/cleanup-invalid-tokens
+   ```
+
+3. **Cek statistik tokens**:
+   ```bash
+   curl http://localhost:3000/api/fcm-token-stats
+   ```
+
+#### Penyebab Error 400:
+- **Token expired**: Token FCM kadaluarsa
+- **App uninstalled**: Aplikasi dihapus dari device
+- **Invalid format**: Format token tidak valid
+- **Wrong project**: Token dari project Firebase yang berbeda
+
+#### Automatic Cleanup
+Sistem akan otomatis membersihkan token invalid setiap hari jam 2 pagi.
 
 ### Environment Variables
 
@@ -109,6 +164,19 @@ CREATE TABLE sigab_app.notifikasi (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
+
+## Monitoring dan Logs
+
+### Log FCM
+- `[FCM] Sent: X, Failed: Y` - Statistik pengiriman notifikasi
+- `[FCM CLEANUP]` - Log cleanup token invalid
+- `[FCM ERROR]` - Error detail untuk debugging
+
+### Cron Jobs
+- **Notifikasi Banjir**: Setiap 10 detik
+- **Notifikasi Cuaca**: Setiap 15 detik  
+- **Notifikasi Laporan**: Setiap 12 detik
+- **Cleanup Tokens**: Setiap hari jam 2 pagi
 
 # Tambahkan Unique Constraint pada Tabel Notifikasi
 

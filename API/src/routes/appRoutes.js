@@ -198,6 +198,15 @@ router.post('/register-fcm-token', fcmController.registerFcmToken);
 // Endpoint untuk subscribe ke topic
 router.post('/subscribe-topic', fcmController.subscribeToTopic);
 
+// Endpoint untuk test token FCM
+router.post('/test-fcm-token', fcmController.testFcmToken);
+
+// Endpoint untuk cleanup invalid tokens
+router.post('/cleanup-invalid-tokens', fcmController.cleanupInvalidTokens);
+
+// Endpoint untuk mendapatkan statistik FCM tokens
+router.get('/fcm-token-stats', fcmController.getFcmTokenStats);
+
 // Endpoint untuk broadcast notifikasi FCM tes
 router.post('/broadcast-fcm-test', notifikasiController.broadcastTestNotification);
 

@@ -1,6 +1,6 @@
 const pool = require('../config/database');
 const axios = require('axios');
-const { sendFcmNotification, sendFcmTopicNotification, sendFcmToAllTokens } = require('../utils/fcm');
+const { sendFcmNotification, sendFcmTopicNotification, sendFcmToAllTokens, cleanupInvalidTokens } = require('../utils/fcm');
 const { kirimNotifikasiBanjirTerbaru } = require('../utils/banjirNotifier');
 const { kirimNotifikasiCuaca } = require('../utils/cuacaNotifier');
 const cron = require('node-cron');
@@ -32,6 +32,17 @@ cron.schedule('*/15 * * * * *', async () => {
     // Log akan muncul di dalam fungsi jika notifikasi benar-benar dikirim
   } catch (e) {
     console.error('[CRON] Gagal kirim notifikasi cuaca:', e.message);
+  }
+});
+
+// Scheduler: Cleanup invalid FCM tokens setiap hari jam 2 pagi
+cron.schedule('0 2 * * *', async () => {
+  try {
+    console.log('[CRON] Memulai cleanup invalid FCM tokens...');
+    await cleanupInvalidTokens();
+    console.log('[CRON] Cleanup invalid FCM tokens selesai');
+  } catch (e) {
+    console.error('[CRON] Gagal cleanup invalid FCM tokens:', e.message);
   }
 });
 
