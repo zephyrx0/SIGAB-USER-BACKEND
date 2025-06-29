@@ -400,5 +400,34 @@ exports.sendManualNotification = async (req, res) => {
   }
 };
 
+// Endpoint untuk test FCM sederhana
+exports.testFcmSimple = async (req, res) => {
+  try {
+    const { sendFcmToAllTokens } = require('../utils/fcm');
+    
+    const result = await sendFcmToAllTokens(
+      'Test Notifikasi Sederhana',
+      'Ini adalah test notifikasi dengan payload yang disederhanakan',
+      { test: 'simple', timestamp: Date.now().toString() }
+    );
+
+    res.json({
+      status: 'success',
+      message: 'Test FCM sederhana selesai',
+      data: {
+        sent: result.success,
+        failed: result.fail,
+        invalid_removed: result.invalidTokens?.length || 0
+      }
+    });
+  } catch (error) {
+    console.error('Error testing FCM simple:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Gagal test FCM sederhana'
+    });
+  }
+};
+
 module.exports.kirimNotifikasiBanjirTerbaru = kirimNotifikasiBanjirTerbaru;
 module.exports.kirimNotifikasiCuaca = kirimNotifikasiCuaca;

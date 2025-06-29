@@ -57,23 +57,13 @@ async function sendFcmNotification(token, title, body, data = {}) {
         },
         data: formattedData,
         android: {
-          priority: 'high',
-          notification: {
-            priority: 'high',
-            default_sound: true,
-            default_vibrate_timings: true,
-            channel_id: 'default'
-          }
+          priority: 'high'
         },
         apns: {
           payload: {
             aps: {
               sound: 'default',
-              badge: 1,
-              alert: {
-                title: title,
-                body: body
-              }
+              badge: 1
             }
           }
         }
@@ -195,23 +185,13 @@ async function sendFcmTopicNotification(topic, title, body, data = {}) {
         },
         data: formattedData,
         android: {
-          priority: 'high',
-          notification: {
-            priority: 'high',
-            default_sound: true,
-            default_vibrate_timings: true,
-            channel_id: 'default'
-          }
+          priority: 'high'
         },
         apns: {
           payload: {
             aps: {
               sound: 'default',
-              badge: 1,
-              alert: {
-                title: title,
-                body: body
-              }
+              badge: 1
             }
           }
         }

@@ -46,6 +46,11 @@ Content-Type: application/json
 }
 ```
 
+#### Test FCM Sederhana (Recommended)
+```http
+POST /api/test-fcm-simple
+```
+
 #### Cleanup Invalid Tokens
 ```http
 POST /api/cleanup-invalid-tokens
@@ -86,6 +91,28 @@ GET /api/notification-history?installed_at=2024-01-01T00:00:00Z
 
 ### Troubleshooting FCM Errors
 
+#### Error 400 - Invalid JSON Payload
+Jika Anda melihat error seperti ini:
+```
+[FCM ERROR] Status: 400, Data: {
+  error: {
+    code: 400,
+    message: "Invalid JSON payload received. Unknown name 'priority' at 'message.android.notification': Cannot find field.",
+    status: 'INVALID_ARGUMENT'
+  }
+}
+```
+
+**Solusi:**
+1. **Gunakan endpoint test sederhana**:
+   ```bash
+   curl -X POST http://localhost:3000/api/test-fcm-simple
+   ```
+
+2. **Restart server** untuk menerapkan perbaikan payload FCM
+
+3. **Cek log** untuk memastikan tidak ada error payload
+
 #### Error 400 - Invalid Token
 Jika Anda melihat error seperti ini:
 ```
@@ -115,6 +142,7 @@ Jika Anda melihat error seperti ini:
 - **App uninstalled**: Aplikasi dihapus dari device
 - **Invalid format**: Format token tidak valid
 - **Wrong project**: Token dari project Firebase yang berbeda
+- **Invalid payload**: Struktur payload FCM tidak sesuai
 
 #### Automatic Cleanup
 Sistem akan otomatis membersihkan token invalid setiap hari jam 2 pagi.
@@ -171,12 +199,26 @@ CREATE TABLE sigab_app.notifikasi (
 - `[FCM] Sent: X, Failed: Y` - Statistik pengiriman notifikasi
 - `[FCM CLEANUP]` - Log cleanup token invalid
 - `[FCM ERROR]` - Error detail untuk debugging
+- `[FCM TOPIC ERROR]` - Error untuk topic messaging
 
 ### Cron Jobs
 - **Notifikasi Banjir**: Setiap 10 detik
 - **Notifikasi Cuaca**: Setiap 15 detik  
 - **Notifikasi Laporan**: Setiap 12 detik
 - **Cleanup Tokens**: Setiap hari jam 2 pagi
+
+### Quick Test Commands
+
+```bash
+# Test FCM sederhana (recommended)
+curl -X POST http://localhost:3000/api/test-fcm-simple
+
+# Cek statistik token
+curl http://localhost:3000/api/fcm-token-stats
+
+# Cleanup token invalid
+curl -X POST http://localhost:3000/api/cleanup-invalid-tokens
+```
 
 # Tambahkan Unique Constraint pada Tabel Notifikasi
 

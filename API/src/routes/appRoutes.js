@@ -213,6 +213,9 @@ router.post('/broadcast-fcm-test', notifikasiController.broadcastTestNotificatio
 // Endpoint untuk mengirim notifikasi manual ke semua token
 router.post('/send-manual-notification', notifikasiController.sendManualNotification);
 
+// Endpoint untuk test FCM sederhana
+router.post('/test-fcm-simple', notifikasiController.testFcmSimple);
+
 // router.post('/notifikasi/test-banjir', notifikasiController.testNotifikasiBanjir);
 // router.post('/notifikasi/test-cuaca', notifikasiController.testNotifikasiCuaca);
 
