@@ -10,15 +10,23 @@ const { cekDanKirimNotifikasiTigaLaporanValid } = require('../utils/laporanNotif
 cron.schedule('*/10 * * * * *', async () => {
   try {
     await kirimNotifikasiBanjirTerbaru();
-    await cekDanKirimNotifikasiTigaLaporanValid();
     // Log akan muncul di dalam fungsi jika notifikasi benar-benar dikirim
   } catch (e) {
     console.error('[CRON] Gagal kirim notifikasi banjir:', e.message);
   }
 });
 
+cron.schedule('*/12 * * * * *', async () => {
+  try {
+    await cekDanKirimNotifikasiTigaLaporanValid();
+    // Log akan muncul di dalam fungsi jika notifikasi benar-benar dikirim
+  } catch (e) {
+    console.error('[CRON] Gagal kirim notifikasi laporan:', e.message);
+  }
+});
+
 // Scheduler: Notifikasi cuaca setiap 30 menit (diubah dari 10 detik)
-cron.schedule('*/10 * * * * *', async () => {
+cron.schedule('*/15 * * * * *', async () => {
   try {
     await kirimNotifikasiCuaca();
     // Log akan muncul di dalam fungsi jika notifikasi benar-benar dikirim
