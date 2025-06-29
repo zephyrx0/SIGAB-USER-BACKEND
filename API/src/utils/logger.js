@@ -1,9 +1,9 @@
 /**
- * Logger utility for application-wide logging
- * Uses Winston for log management
+ * Logger configuration using Winston
+ * This file sets up logging for the application
  */
 
-const { createLogger, format, transports } = require('winston');
+const winston = require('winston');
 const fs = require('fs');
 const path = require('path');
 
@@ -13,42 +13,56 @@ if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir);
 }
 
+// Define log format
+const logFormat = winston.format.combine(
+  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+  winston.format.errors({ stack: true }),
+  winston.format.splat(),
+  winston.format.json()
+);
+
+// Define console format (more readable for development)
+const consoleFormat = winston.format.combine(
+  winston.format.colorize(),
+  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+  winston.format.printf(
+    info => `${info.timestamp} ${info.level}: ${info.message}${info.stack ? '\n' + info.stack : ''}`
+  )
+);
+
 // Create logger instance
-const logger = createLogger({
-  level: process.env.LOG_LEVEL || 'info',
-  format: format.combine(
-    format.timestamp({
-      format: 'YYYY-MM-DD HH:mm:ss'
-    }),
-    format.errors({ stack: true }),
-    format.json()
-  ),
+const logger = winston.createLogger({
+  level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+  format: logFormat,
   defaultMeta: { service: 'sigab-api' },
   transports: [
-    // Write all logs with importance level of `error` or less to `error.log`
-    new transports.File({ 
+    // Write all logs error (and below) to error.log
+    new winston.transports.File({ 
       filename: path.join(logDir, 'error.log'), 
-      level: 'error',
-      maxsize: 5242880, // 5MB
-      maxFiles: 5
+      level: 'error' 
     }),
-    // Write all logs with importance level of `info` or less to `combined.log`
-    new transports.File({ 
-      filename: path.join(logDir, 'combined.log'),
-      maxsize: 5242880, // 5MB
-      maxFiles: 5
+    // Write all logs to combined.log
+    new winston.transports.File({ 
+      filename: path.join(logDir, 'combined.log') 
+    })
+  ],
+  // Handle exceptions and rejections
+  exceptionHandlers: [
+    new winston.transports.File({ 
+      filename: path.join(logDir, 'exceptions.log') 
+    })
+  ],
+  rejectionHandlers: [
+    new winston.transports.File({ 
+      filename: path.join(logDir, 'rejections.log') 
     })
   ]
 });
 
-// If we're not in production then log to the `console` with the format:
-// `${info.level}: ${info.message} JSON.stringify({ ...rest }) `
+// Add console transport for non-production environments
 if (process.env.NODE_ENV !== 'production') {
-  logger.add(new transports.Console({
-    format: format.combine(
-      format.colorize(),
-      format.simple()
-    )
+  logger.add(new winston.transports.Console({
+    format: consoleFormat
   }));
 }
 
