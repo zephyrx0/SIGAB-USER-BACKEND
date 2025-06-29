@@ -79,7 +79,21 @@ async function kirimNotifikasiCuaca() {
   const cuaca = hujanForecast.weather_desc;
   const deskripsi = `Peringatan dini: ${cuaca} diperkirakan terjadi pada pukul ${jam} WIB.`;
 
-  // Simpan ke tabel notifikasi dulu
+  // Cek manual sebelum insert
+  const notifCheck = await pool.query(
+    `SELECT 1 FROM sigab_app.notifikasi 
+     WHERE judul = 'Peringatan Dini Cuaca'
+     AND pesan = $1
+     AND DATE(created_at) = CURRENT_DATE
+     LIMIT 1`,
+    [deskripsi]
+  );
+  if (notifCheck.rows.length > 0) {
+    console.log('[CUACA][CRON] Notifikasi cuaca sudah pernah dikirim hari ini, skip.');
+    return;
+  }
+
+  // Simpan ke tabel notifikasi
   await pool.query(
     'INSERT INTO sigab_app.notifikasi (judul, pesan, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())',
     ['Peringatan Dini Cuaca', deskripsi]

@@ -20,11 +20,12 @@ async function kirimNotifikasiBanjirTerbaru() {
     );
     if (result.rows.length === 0) {
       console.log('[BANJIR][CRON] Tidak ada data banjir tersedia');
-      return; // Jangan lupa return di sini
+      return;
     }
     const { wilayah_banjir } = result.rows[0];
     const deskripsi = `Banjir terdeteksi di wilayah ${wilayah_banjir}, Mohon waspada`;
 
+    // Cek manual sebelum insert
     const cek = await pool.query(
       `SELECT 1 FROM sigab_app.notifikasi 
        WHERE judul = $1 
@@ -35,12 +36,12 @@ async function kirimNotifikasiBanjirTerbaru() {
     );
     if (cek.rows.length > 0) {
       console.log('[BANJIR][CRON] Notifikasi sudah pernah dikirim hari ini, skip.');
-      return; // Jangan lupa return di sini juga
+      return;
     }
 
-    // Simpan ke tabel notifikasi dulu
+    // Simpan ke tabel notifikasi
     await pool.query(
-      'INSERT INTO sigab_app.notifikasi (judul, pesan, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) ON CONFLICT DO NOTHING',
+      'INSERT INTO sigab_app.notifikasi (judul, pesan, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())',
       ['Informasi Banjir Terbaru', deskripsi]
     );
     console.log('[BANJIR][DB] Notifikasi berhasil disimpan ke database');
@@ -57,7 +58,7 @@ async function kirimNotifikasiBanjirTerbaru() {
   } catch (error) {
     console.error('[BANJIR][CRON][ERROR]', error.message);
   } finally {
-    isJobRunning = false; // Selalu lepaskan lock, baik sukses maupun error
+    isJobRunning = false;
   }
 }
 
