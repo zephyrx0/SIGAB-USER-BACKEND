@@ -1,5 +1,5 @@
 const pool = require('../config/database');
-const { sendFcmHybridNotification } = require('./fcm');
+const { sendFcmSmartCollapsible } = require('./fcm');
 const { kirimWhatsappKeSemuaUser } = require('./twilioNotifier');
 
 // Flag untuk menandakan job sedang berjalan
@@ -46,9 +46,9 @@ async function kirimNotifikasiBanjirTerbaru() {
     );
     console.log('[BANJIR][DB] Notifikasi berhasil disimpan ke database');
 
-    // Kirim dengan hybrid approach (topic + individual untuk offline storage)
+    // Kirim dengan smart collapsible (TTL 7 hari, tanpa database tambahan)
     try {
-      const fcmResult = await sendFcmHybridNotification(
+      const fcmResult = await sendFcmSmartCollapsible(
         'Informasi Banjir Terbaru',
         deskripsi,
         { 
@@ -57,9 +57,9 @@ async function kirimNotifikasiBanjirTerbaru() {
           source: 'cron_job'
         }
       );
-      console.log(`[BANJIR][FCM HYBRID] Topic: ${fcmResult.topicSuccess ? 'SUCCESS' : 'FAILED'}, Individual: ${fcmResult.individualSuccess} sent, ${fcmResult.individualFailed} failed, Invalid removed: ${fcmResult.invalidTokens?.length || 0}`);
+      console.log(`[BANJIR][FCM SMART COLLAPSIBLE] Topic: ${fcmResult.topicSuccess ? 'SUCCESS' : 'FAILED'}, Individual: ${fcmResult.individualSuccess} sent, ${fcmResult.individualFailed} failed, Invalid removed: ${fcmResult.invalidTokens?.length || 0}, TTL: 7 days`);
     } catch (fcmError) {
-      console.error('[BANJIR][FCM HYBRID] Error:', fcmError.message);
+      console.error('[BANJIR][FCM SMART COLLAPSIBLE] Error:', fcmError.message);
     }
 
     // Kirim WhatsApp ke semua user

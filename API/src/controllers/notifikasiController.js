@@ -429,7 +429,7 @@ exports.testFcmSimple = async (req, res) => {
   }
 };
 
-// Fungsi untuk mengirim ulang notifikasi yang terlewat ke device tertentu
+// Endpoint untuk mengirim ulang notifikasi yang terlewat (dengan smart collapsible)
 exports.resendMissedNotifications = async (req, res) => {
   try {
     const { token, last_seen_at } = req.body;
@@ -441,69 +441,62 @@ exports.resendMissedNotifications = async (req, res) => {
       });
     }
 
-    // Jika last_seen_at tidak ada, ambil notifikasi 7 hari terakhir
-    const cutoffDate = last_seen_at || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-
-    // Ambil notifikasi yang dibuat setelah last_seen_at
-    const result = await pool.query(
-      `SELECT *
-       FROM sigab_app.notifikasi
-       WHERE created_at >= $1::timestamp with time zone
-       ORDER BY created_at ASC
-       LIMIT 20`,
-      [cutoffDate]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(200).json({
-        status: 'success',
-        message: 'Tidak ada notifikasi yang terlewat',
-        data: []
-      });
-    }
-
-    // Kirim ulang setiap notifikasi yang terlewat
-    const { sendFcmNotification } = require('../utils/fcm');
-    let sentCount = 0;
-    let failedCount = 0;
-
-    for (const notification of result.rows) {
-      try {
-        await sendFcmNotification(
-          token,
-          notification.judul,
-          notification.pesan,
-          {
-            notification_id: notification.id_notifikasi.toString(),
-            type: 'missed_notification',
-            timestamp: notification.created_at.toISOString()
-          }
-        );
-        sentCount++;
-        
-        // Delay kecil antara pengiriman untuk menghindari rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100));
-      } catch (error) {
-        console.error(`[RESEND] Failed to send notification ${notification.id_notifikasi}:`, error.message);
-        failedCount++;
-      }
-    }
-
-    res.status(200).json({
+    const { resendNotificationsFromExistingTable } = require('../utils/fcm');
+    
+    const result = await resendNotificationsFromExistingTable(token, last_seen_at);
+    
+    res.json({
       status: 'success',
       message: 'Pengiriman ulang notifikasi selesai',
       data: {
-        total_missed: result.rows.length,
-        sent: sentCount,
-        failed: failedCount,
-        notifications: result.rows
+        sent: result.sent,
+        failed: result.failed,
+        total: result.total,
+        message: result.message
       }
     });
   } catch (error) {
     console.error('Error resending missed notifications:', error);
     res.status(500).json({
       status: 'error',
-      message: 'Terjadi kesalahan saat mengirim ulang notifikasi'
+      message: 'Gagal mengirim ulang notifikasi'
+    });
+  }
+};
+
+// Endpoint untuk test FCM dengan smart collapsible
+exports.testFcmSmartCollapsible = async (req, res) => {
+  try {
+    const { sendFcmSmartCollapsible } = require('../utils/fcm');
+    
+    const result = await sendFcmSmartCollapsible(
+      'Test Notifikasi Smart Collapsible',
+      'Ini adalah test notifikasi dengan smart collapsible (TTL 7 hari, tanpa database tambahan)',
+      { 
+        test: 'smart_collapsible', 
+        timestamp: Date.now().toString(),
+        source: 'manual_test'
+      }
+    );
+
+    res.json({
+      status: 'success',
+      message: 'Test FCM smart collapsible selesai',
+      data: {
+        topic_success: result.topicSuccess,
+        individual_sent: result.individualSuccess,
+        individual_failed: result.individualFailed,
+        invalid_removed: result.invalidTokens?.length || 0,
+        notification_id: result.notificationId,
+        ttl: '7 days',
+        no_additional_tables: true
+      }
+    });
+  } catch (error) {
+    console.error('Error testing FCM smart collapsible:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Gagal test FCM smart collapsible'
     });
   }
 };

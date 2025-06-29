@@ -1,5 +1,5 @@
 const pool = require('../config/database');
-const { sendFcmHybridNotification } = require('./fcm');
+const { sendFcmSmartCollapsible } = require('./fcm');
 const axios = require('axios');
 const isDemo = process.env.DEMO_MODE === 'true';
 const { kirimWhatsappKeSemuaUser } = require('./twilioNotifier');
@@ -100,9 +100,9 @@ async function kirimNotifikasiCuaca() {
   );
   console.log('[CUACA][DB] Notifikasi berhasil disimpan ke database');
 
-  // Kirim dengan hybrid approach (topic + individual untuk offline storage)
+  // Kirim dengan smart collapsible (TTL 7 hari, tanpa database tambahan)
   try {
-    const fcmResult = await sendFcmHybridNotification(
+    const fcmResult = await sendFcmSmartCollapsible(
       'Peringatan Dini Cuaca',
       deskripsi,
       { 
@@ -112,9 +112,9 @@ async function kirimNotifikasiCuaca() {
         source: 'cron_job'
       }
     );
-    console.log(`[CUACA][FCM HYBRID] Topic: ${fcmResult.topicSuccess ? 'SUCCESS' : 'FAILED'}, Individual: ${fcmResult.individualSuccess} sent, ${fcmResult.individualFailed} failed, Invalid removed: ${fcmResult.invalidTokens?.length || 0}`);
+    console.log(`[CUACA][FCM SMART COLLAPSIBLE] Topic: ${fcmResult.topicSuccess ? 'SUCCESS' : 'FAILED'}, Individual: ${fcmResult.individualSuccess} sent, ${fcmResult.individualFailed} failed, Invalid removed: ${fcmResult.invalidTokens?.length || 0}, TTL: 7 days`);
   } catch (fcmError) {
-    console.error('[CUACA][FCM HYBRID] Error:', fcmError.message);
+    console.error('[CUACA][FCM SMART COLLAPSIBLE] Error:', fcmError.message);
   }
 
   // Kirim WhatsApp ke semua user

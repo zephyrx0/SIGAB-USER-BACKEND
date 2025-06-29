@@ -126,7 +126,7 @@ async function subscribeToTopic(token, topic) {
 // Fungsi untuk kirim notifikasi dengan hybrid approach (topic + individual untuk offline)
 async function sendFcmHybridNotification(title, body, data = {}) {
   const pool = require('../config/database');
-  
+
   // Generate unique notification ID
   const notificationId = Date.now().toString();
   const enhancedData = {
@@ -243,15 +243,15 @@ async function sendFcmToAllTokens(title, body, data = {}) {
 
 async function sendFcmTopicNotification(topic, title, body, data = {}) {
   try {
-    const accessToken = await getAccessToken();
-    const url = `https://fcm.googleapis.com/v1/projects/${PROJECT_ID}/messages:send`;
+  const accessToken = await getAccessToken();
+  const url = `https://fcm.googleapis.com/v1/projects/${PROJECT_ID}/messages:send`;
 
     // Format data untuk FCM
     const formattedData = formatFcmData(data);
 
-    const message = {
-      message: {
-        topic,
+  const message = {
+    message: {
+      topic,
         notification: { 
           title, 
           body 
@@ -336,11 +336,215 @@ async function cleanupInvalidTokens() {
   return { validTokens, invalidTokens };
 }
 
+// Fungsi untuk kirim notifikasi dengan collapsible key (untuk offline storage multiple notifications)
+async function sendFcmCollapsibleNotification(token, title, body, data = {}, collapseKey = 'default') {
+  try {
+    const accessToken = await getAccessToken();
+    const url = `https://fcm.googleapis.com/v1/projects/${PROJECT_ID}/messages:send`;
+
+    // Format data untuk FCM
+    const formattedData = formatFcmData(data);
+
+    const message = {
+      message: {
+        token,
+        notification: { 
+          title, 
+          body 
+        },
+        data: formattedData,
+        android: {
+          priority: 'high',
+          collapse_key: collapseKey,
+          ttl: '604800s' // 7 hari TTL untuk offline storage yang lebih lama
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: 'default',
+              badge: 1
+            }
+          },
+          headers: {
+            'apns-collapse-id': collapseKey
+          }
+        }
+    },
+  };
+
+  const response = await axios.post(url, message, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+      timeout: 10000
+  });
+
+  return response.data;
+  } catch (error) {
+    if (error.response) {
+      console.error(`[FCM COLLAPSIBLE ERROR] Status: ${error.response.status}, Data:`, error.response.data);
+      
+      if (error.response.status === 400) {
+        if (error.response.data?.error?.details?.[0]?.errorCode === 'INVALID_ARGUMENT') {
+          throw new Error('Invalid token or message format');
+        } else if (error.response.data?.error?.details?.[0]?.errorCode === 'UNREGISTERED') {
+          throw new Error('Token is unregistered');
+        }
+      } else if (error.response.status === 404) {
+        throw new Error('Token not found');
+      }
+    }
+    throw error;
+  }
+}
+
+// Fungsi untuk kirim notifikasi dengan smart collapsible (tanpa database tambahan)
+async function sendFcmSmartCollapsible(title, body, data = {}) {
+  const pool = require('../config/database');
+  
+  // Generate unique notification ID
+  const notificationId = Date.now().toString();
+  const enhancedData = {
+    ...data,
+    notification_id: notificationId,
+    timestamp: new Date().toISOString(),
+    delivery_method: 'smart_collapsible'
+  };
+
+  let topicSuccess = false;
+  let individualSuccess = 0;
+  let individualFailed = 0;
+  const invalidTokens = [];
+
+  // 1. Kirim ke topic untuk device online (immediate delivery)
+  try {
+    await sendFcmTopicNotification('peringatan-umum', title, body, enhancedData);
+    topicSuccess = true;
+    console.log('[FCM SMART COLLAPSIBLE] Topic notification sent successfully');
+  } catch (topicError) {
+    console.error('[FCM SMART COLLAPSIBLE] Topic notification failed:', topicError.message);
+  }
+
+  // 2. Kirim ke individual tokens dengan smart collapse key
+  const { rows } = await pool.query('SELECT token FROM sigab_app.fcm_tokens WHERE token IS NOT NULL');
+  const tokens = rows.map(r => r.token);
+
+  for (const token of tokens) {
+    try {
+      // Add small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // Smart collapse key berdasarkan type dan timestamp untuk grouping yang lebih baik
+      const collapseKey = `${data.type || 'general'}_${Math.floor(Date.now() / (5 * 60 * 1000))}`; // Group per 5 menit
+      
+      await sendFcmCollapsibleNotification(token, title, body, enhancedData, collapseKey);
+      individualSuccess++;
+    } catch (error) {
+      individualFailed++;
+      
+      if (error.message.includes('unregistered') || error.message.includes('not found')) {
+        invalidTokens.push(token);
+      }
+      
+      console.error(`[FCM SMART COLLAPSIBLE] Individual notification failed for token: ${token}`, error.message);
+    }
+  }
+
+  // Remove invalid tokens
+  if (invalidTokens.length > 0) {
+    try {
+      await pool.query(
+        'DELETE FROM sigab_app.fcm_tokens WHERE token = ANY($1::text[])',
+        [invalidTokens]
+      );
+      console.log(`[FCM SMART COLLAPSIBLE] Removed ${invalidTokens.length} invalid tokens`);
+    } catch (dbError) {
+      console.error('[FCM SMART COLLAPSIBLE] Error removing invalid tokens:', dbError.message);
+    }
+  }
+
+  console.log(`[FCM SMART COLLAPSIBLE] Topic: ${topicSuccess ? 'SUCCESS' : 'FAILED'}, Individual: ${individualSuccess} sent, ${individualFailed} failed, ${invalidTokens.length} invalid removed, TTL: 7 days`);
+  
+  return {
+    topicSuccess,
+    individualSuccess,
+    individualFailed,
+    invalidTokens,
+    notificationId
+  };
+}
+
+// Fungsi untuk kirim ulang notifikasi dari tabel notifikasi yang sudah ada
+async function resendNotificationsFromExistingTable(token, lastSeenAt = null) {
+  const pool = require('../config/database');
+  
+  try {
+    let query = `
+      SELECT id_notifikasi, judul, pesan, created_at 
+      FROM sigab_app.notifikasi 
+      WHERE created_at > $1
+      ORDER BY created_at ASC
+      LIMIT 20
+    `;
+    
+    const cutoffTime = lastSeenAt || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // Default 7 hari yang lalu
+    const { rows } = await pool.query(query, [cutoffTime]);
+    
+    if (rows.length === 0) {
+      return { sent: 0, message: 'No missed notifications found' };
+    }
+    
+    let sent = 0;
+    let failed = 0;
+    
+    for (const notification of rows) {
+      try {
+        const data = {
+          notification_id: notification.id_notifikasi.toString(),
+          type: 'missed_notification',
+          timestamp: notification.created_at.toISOString(),
+          source: 'resend_from_existing_table'
+        };
+        
+        // Smart collapse key untuk resend
+        const collapseKey = `resend_${Math.floor(notification.created_at.getTime() / (5 * 60 * 1000))}`;
+        
+        await sendFcmCollapsibleNotification(
+          token, 
+          notification.judul, 
+          notification.pesan, 
+          data, 
+          collapseKey
+        );
+        sent++;
+        
+        // Add delay between notifications
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+      } catch (error) {
+        failed++;
+        console.error(`[RESEND EXISTING] Failed to resend notification ${notification.id_notifikasi}:`, error.message);
+      }
+    }
+    
+    console.log(`[RESEND EXISTING] Sent: ${sent}, Failed: ${failed} notifications to token: ${token}`);
+    return { sent, failed, total: rows.length };
+    
+  } catch (error) {
+    console.error('[RESEND EXISTING] Error:', error.message);
+    throw error;
+  }
+}
+
 module.exports = { 
   sendFcmTopicNotification, 
   sendFcmNotification, 
   sendFcmToAllTokens,
   sendFcmHybridNotification,
   subscribeToTopic,
-  cleanupInvalidTokens
+  cleanupInvalidTokens,
+  sendFcmCollapsibleNotification,
+  sendFcmSmartCollapsible,
+  resendNotificationsFromExistingTable
 };

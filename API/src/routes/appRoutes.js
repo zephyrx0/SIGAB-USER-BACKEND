@@ -2,8 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-// Hapus userController dari sini karena sudah ditangani di userRoutes.js
-// const userController = require('../controllers/userController'); 
+const userController = require('../controllers/userController');
 const laporanController = require('../controllers/laporanController');
 const tipsMitigasiController = require('../controllers/tipsMitigasiController');
 const informasiBanjirController = require('../controllers/informasiBanjirController');
@@ -16,9 +15,6 @@ const { verifyToken } = require('../middlewares/authMiddleware');
 const supabase = require('../config/supabaseStorage');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs').promises;
-
-// Impor userRoutes baru
-const userRoutes = require('./userRoutes');
 
 // Konfigurasi multer untuk upload file ke memory
 const storage = multer.memoryStorage();
@@ -140,21 +136,22 @@ const uploadToSupabase = async (req, res, next) => {
   }
 };
 
-// Gunakan userRoutes untuk endpoint yang berkaitan dengan pengguna
-// Biasanya diawali dengan /auth atau /users
-router.use('/users', userRoutes); 
+// User endpoints (langsung di /api)
+router.post('/register', userController.register);
+router.post('/login', userController.login);
+router.post('/logout', userController.logoutUser);
+router.get('/users', userController.getAllUsers);
 
-// Hapus endpoint register, login, dan logout yang lama dari sini
-// router.post('/register', userController.register);
-// router.post('/login', userController.login);
-// router.post('/logout', userController.logoutUser);
+// User profile endpoints (langsung di /api)
+router.get('/profile', verifyToken, userController.viewProfile);
+router.put('/profile', verifyToken, userController.changeProfile);
+router.put('/password', verifyToken, userController.changePassword);
 
-
-// Endpoint untuk mengambil semua data user (jika masih diperlukan, bisa dipindah ke userRoutes atau adminRoutes)
-// router.get('/users', userController.getAllUsers);
+// User password reset endpoints (langsung di /api)
+router.post('/forgot-password', userController.requestResetPassword);
+router.post('/reset-password', userController.resetPassword);
 
 // Endpoint untuk mengambil semua laporan
-// router.get('/laporan', laporanController.getAllReports);
 router.post('/laporan', verifyToken, upload.single('foto'), uploadToSupabase, laporanController.createReport);
 
 // Endpoint untuk mengambil semua tips mitigasi
@@ -215,6 +212,9 @@ router.post('/test-fcm-simple', notifikasiController.testFcmSimple);
 
 // Endpoint untuk test FCM hybrid
 router.post('/test-fcm-hybrid', notifikasiController.testFcmHybrid);
+
+// Endpoint untuk test FCM dengan smart collapsible (Recommended)
+router.post('/test-fcm-smart-collapsible', notifikasiController.testFcmSmartCollapsible);
 
 // Endpoint untuk mengirim ulang notifikasi yang terlewat
 router.post('/resend-missed-notifications', notifikasiController.resendMissedNotifications);

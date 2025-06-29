@@ -1,41 +1,44 @@
 # SIGAB User Backend API
 
-Backend API untuk aplikasi SIGAB (Sistem Informasi Geografis Banjir) dengan fitur notifikasi real-time.
+Backend API untuk aplikasi SIGAB (Sistem Informasi Geografis Banjir) dengan fitur notifikasi real-time dan offline support.
 
-## Fitur Notifikasi Offline
+## Fitur Notifikasi Offline - Smart Collapsible System
 
-Sistem notifikasi telah diperbaiki untuk mendukung pengiriman notifikasi ke device yang offline. Ketika device kembali online, notifikasi yang terlewat akan otomatis diterima.
+Sistem notifikasi telah diperbaiki untuk mendukung pengiriman **multiple notifications** ke device yang offline. Ketika device kembali online, **semua notifikasi yang terlewat** akan otomatis diterima.
 
-### Mekanisme Notifikasi Offline - Hybrid Approach
+### Masalah Sebelumnya:
+- **FCM hanya menyimpan notifikasi terbaru** untuk device offline
+- **Device online hanya menerima 1 notifikasi** saat kembali online
+- **Topic messaging tidak menyimpan** notifikasi untuk offline
+- **Hybrid approach masih terbatas** oleh FCM storage
 
-**Masalah Sebelumnya:**
-- FCM hanya menyimpan notifikasi terbaru untuk device offline
-- Device online hanya menerima 1 notifikasi saat kembali online
-- Topic messaging tidak menyimpan notifikasi untuk offline
+### Solusi Smart Collapsible System:
 
-**Solusi Hybrid Approach:**
-1. **Topic Messaging** - Untuk device online (immediate delivery)
-2. **Individual Token Messaging** - Untuk device offline (offline storage)
-3. **Unique Notification ID** - Untuk tracking dan menghindari duplikasi
-4. **Rate Limiting** - Delay antar pengiriman untuk menghindari throttling
+**1. Extended TTL** - FCM menyimpan notifikasi selama 7 hari (bukan 24 jam)
+**2. Smart Collapse Keys** - Grouping berdasarkan type dan timestamp (5 menit)
+**3. Manual Resend** - Endpoint untuk kirim ulang notifikasi terlewat dari tabel existing
+**4. No Additional Tables** - Menggunakan tabel notifikasi yang sudah ada
+**5. Unique Tracking** - Setiap notifikasi memiliki ID unik
 
-### Cara Kerja Hybrid Approach
+### Cara Kerja Smart Collapsible:
 
 ```javascript
-// 1. Kirim ke topic untuk device online
+// 1. Kirim ke topic untuk device online (immediate delivery)
 await sendFcmTopicNotification('peringatan-umum', title, body, data);
 
-// 2. Kirim ke individual tokens untuk offline storage
-for (const token of tokens) {
-  await sendFcmNotification(token, title, body, data);
-}
+// 2. Kirim ke individual tokens dengan smart collapse key
+const collapseKey = `${data.type || 'general'}_${Math.floor(Date.now() / (5 * 60 * 1000))}`;
+await sendFcmCollapsibleNotification(token, title, body, data, collapseKey);
 ```
 
-**Keuntungan:**
-- ✅ **Device online** - Menerima notifikasi langsung via topic
-- ✅ **Device offline** - FCM menyimpan notifikasi untuk setiap token
-- ✅ **No duplication** - Unique notification_id mencegah duplikasi
-- ✅ **All notifications** - Device offline akan menerima semua notifikasi saat online
+### Keuntungan Smart Collapsible:
+
+✅ **Extended TTL** - FCM menyimpan notifikasi selama 7 hari  
+✅ **Smart grouping** - Notifikasi dikelompokkan per 5 menit berdasarkan type  
+✅ **No additional tables** - Tidak perlu tabel database tambahan  
+✅ **Manual resend** - Bisa kirim ulang notifikasi terlewat dari tabel existing  
+✅ **Unique tracking** - Setiap notifikasi memiliki ID unik untuk tracking  
+✅ **Immediate delivery** - Device online menerima notifikasi langsung  
 
 ### Endpoints Notifikasi
 
@@ -70,17 +73,22 @@ Content-Type: application/json
 }
 ```
 
+#### Test FCM Smart Collapsible (Recommended)
+```http
+POST /api/test-fcm-smart-collapsible
+```
+
+#### Test FCM Hybrid
+```http
+POST /api/test-fcm-hybrid
+```
+
 #### Test FCM Sederhana
 ```http
 POST /api/test-fcm-simple
 ```
 
-#### Test FCM Hybrid (Recommended)
-```http
-POST /api/test-fcm-hybrid
-```
-
-#### Resend Missed Notifications
+#### Resend Missed Notifications (Smart Collapsible)
 ```http
 POST /api/resend-missed-notifications
 Content-Type: application/json
@@ -126,18 +134,19 @@ Content-Type: application/json
 GET /api/notification-history?installed_at=2024-01-01T00:00:00Z
 ```
 
-### Testing Notifikasi Offline
+### Testing Notifikasi Offline dengan Smart Collapsible
 
 1. **Register Device**: Pastikan device terdaftar dengan FCM token
-2. **Test Hybrid**: Gunakan endpoint hybrid untuk memastikan sistem bekerja
+2. **Test Smart Collapsible**: Gunakan endpoint smart collapsible untuk memastikan sistem bekerja
 3. **Matikan Internet**: Putuskan koneksi internet device
-4. **Kirim Notifikasi**: Gunakan endpoint manual atau trigger notifikasi otomatis
+4. **Kirim Beberapa Notifikasi**: Gunakan cron job atau endpoint manual
 5. **Hidupkan Internet**: Kembalikan koneksi internet
-6. **Cek Notifikasi**: Device akan menerima semua notifikasi yang terlewat
+6. **Cek Notifikasi**: Device akan menerima SEMUA notifikasi yang terlewat
+7. **Manual Resend**: Jika ada yang terlewat, gunakan endpoint resend
 
-### Resend Missed Notifications
+### Resend Missed Notifications (Smart Collapsible)
 
-Ketika device kembali online, gunakan endpoint ini untuk mengirim ulang notifikasi yang terlewat:
+Ketika device kembali online, gunakan endpoint ini untuk mengirim ulang notifikasi yang terlewat dari tabel existing:
 
 ```javascript
 // Frontend implementation
@@ -158,7 +167,7 @@ const resendMissedNotifications = async (token, lastSeenAt) => {
     console.log('Resend result:', result);
     
     if (result.data.sent > 0) {
-      console.log(`Received ${result.data.sent} missed notifications`);
+      console.log(`Received ${result.data.sent} missed notifications from existing table`);
     }
   } catch (error) {
     console.error('Error resending notifications:', error);
@@ -181,9 +190,9 @@ Jika Anda melihat error seperti ini:
 ```
 
 **Solusi:**
-1. **Gunakan endpoint test hybrid**:
+1. **Gunakan endpoint test smart collapsible**:
    ```bash
-   curl -X POST http://localhost:3000/api/test-fcm-hybrid
+   curl -X POST http://localhost:3000/api/test-fcm-smart-collapsible
    ```
 
 2. **Restart server** untuk menerapkan perbaikan payload FCM
@@ -272,11 +281,11 @@ CREATE TABLE sigab_app.notifikasi (
 
 ## Monitoring dan Logs
 
-### Log FCM Hybrid
-- `[FCM HYBRID] Topic: SUCCESS/FAILED, Individual: X sent, Y failed, Z invalid removed` - Statistik hybrid notification
+### Log FCM Smart Collapsible
+- `[FCM SMART COLLAPSIBLE] Topic: SUCCESS/FAILED, Individual: X sent, Y failed, Z invalid removed, TTL: 7 days` - Statistik smart collapsible
+- `[RESEND EXISTING] Sent: X, Failed: Y notifications to token: Z` - Log pengiriman ulang notifikasi
 - `[FCM CLEANUP]` - Log cleanup token invalid
 - `[FCM ERROR]` - Error detail untuk debugging
-- `[RESEND]` - Log pengiriman ulang notifikasi
 
 ### Cron Jobs
 - **Notifikasi Banjir**: Setiap 10 detik
@@ -287,7 +296,10 @@ CREATE TABLE sigab_app.notifikasi (
 ### Quick Test Commands
 
 ```bash
-# Test FCM hybrid (recommended)
+# Test FCM smart collapsible (recommended)
+curl -X POST http://localhost:3000/api/test-fcm-smart-collapsible
+
+# Test FCM hybrid
 curl -X POST http://localhost:3000/api/test-fcm-hybrid
 
 # Test FCM sederhana
@@ -308,13 +320,13 @@ curl -X POST http://localhost:3000/api/resend-missed-notifications \
   -d '{"token": "your_token_here"}'
 ```
 
-### Keuntungan Hybrid Approach
+### Keuntungan Smart Collapsible System
 
+✅ **Extended TTL** - FCM menyimpan notifikasi selama 7 hari  
+✅ **Smart grouping** - Notifikasi dikelompokkan per 5 menit berdasarkan type  
+✅ **No additional tables** - Tidak perlu tabel database tambahan  
+✅ **Manual resend** - Bisa kirim ulang notifikasi terlewat dari tabel existing  
+✅ **Unique tracking** - Setiap notifikasi memiliki ID unik untuk tracking  
 ✅ **Immediate delivery** - Device online menerima notifikasi langsung  
-✅ **Offline storage** - FCM menyimpan notifikasi untuk device offline  
-✅ **All notifications** - Device offline akan menerima semua notifikasi saat online  
-✅ **No duplication** - Unique notification_id mencegah duplikasi  
-✅ **Better tracking** - Delivery method tracking untuk monitoring  
 ✅ **Rate limiting** - Delay antar pengiriman untuk menghindari throttling  
-✅ **Automatic cleanup** - Token invalid dibersihkan otomatis  
-✅ **Manual resend** - Endpoint untuk mengirim ulang notifikasi terlewat 
+✅ **Automatic cleanup** - Token invalid dibersihkan otomatis 

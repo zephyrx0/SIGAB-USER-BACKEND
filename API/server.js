@@ -42,11 +42,9 @@ app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 // Import routes
 const appRoutes = require('./src/routes/appRoutes');
-const userRoutes = require('./src/routes/userRoutes');
 
-// Gunakan routes
-app.use('/api/app', appRoutes);
-app.use('/api/users', userRoutes);
+// Gunakan routes (langsung di /api)
+app.use('/api', appRoutes);
 
 // Endpoint root
 app.get('/', (req, res) => {

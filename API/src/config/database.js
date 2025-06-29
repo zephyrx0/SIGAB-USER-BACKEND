@@ -116,6 +116,30 @@ const testConnection = async () => {
   }
 };
 
+// Fungsi untuk membuat tabel offline_notifications jika belum ada
+async function createOfflineNotificationsTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS sigab_app.offline_notifications (
+        id SERIAL PRIMARY KEY,
+        notification_id VARCHAR(255) UNIQUE NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        body TEXT NOT NULL,
+        data JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_created_at (created_at),
+        INDEX idx_notification_id (notification_id)
+      );
+    `);
+    console.log('[DB] Offline notifications table ready');
+  } catch (error) {
+    console.error('[DB] Error creating offline_notifications table:', error.message);
+  }
+}
+
+// Panggil fungsi saat startup
+createOfflineNotificationsTable();
+
 module.exports = {
   query,
   getTransactionClient,
