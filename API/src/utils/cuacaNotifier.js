@@ -79,7 +79,14 @@ async function kirimNotifikasiCuaca() {
   const cuaca = hujanForecast.weather_desc;
   const deskripsi = `Peringatan dini: ${cuaca} diperkirakan terjadi pada pukul ${jam} WIB.`;
 
-  console.log('[CUACA][FCM] Akan mengirim notifikasi ke topic: peringatan-umum', 'Peringatan Dini Cuaca', deskripsi);
+  // Simpan ke tabel notifikasi dulu
+  await pool.query(
+    'INSERT INTO sigab_app.notifikasi (judul, pesan, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())',
+    ['Peringatan Dini Cuaca', deskripsi]
+  );
+  console.log('[CUACA][DB] Notifikasi berhasil disimpan ke database');
+
+  // Kirim ke FCM
   await sendFcmTopicNotification(
     'peringatan-umum',
     'Peringatan Dini Cuaca',
@@ -90,13 +97,6 @@ async function kirimNotifikasiCuaca() {
 
   // Kirim WhatsApp ke semua user
   await kirimWhatsappKeSemuaUser(deskripsi);
-
-  // Simpan ke tabel notifikasi
-  await pool.query(
-    'INSERT INTO sigab_app.notifikasi (judul, pesan, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())',
-    ['Peringatan Dini Cuaca', deskripsi]
-  );
-  console.log('[CUACA][DB] Notifikasi berhasil disimpan ke database');
 }
 
 module.exports = { kirimNotifikasiCuaca }; 

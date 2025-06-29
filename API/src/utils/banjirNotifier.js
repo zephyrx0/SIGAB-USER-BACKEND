@@ -38,22 +38,22 @@ async function kirimNotifikasiBanjirTerbaru() {
       return; // Jangan lupa return di sini juga
     }
 
-    console.log('[BANJIR][FCM] Akan mengirim notifikasi...');
+    // Simpan ke tabel notifikasi dulu
+    await pool.query(
+      'INSERT INTO sigab_app.notifikasi (judul, pesan, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) ON CONFLICT DO NOTHING',
+      ['Informasi Banjir Terbaru', deskripsi]
+    );
+    console.log('[BANJIR][DB] Notifikasi berhasil disimpan ke database');
+
+    // Kirim ke FCM
     await sendFcmTopicNotification(
       'peringatan-umum',
       'Informasi Banjir Terbaru',
       deskripsi,
       { wilayah_banjir }
     );
-    
     // Kirim WhatsApp ke semua user
     await kirimWhatsappKeSemuaUser(deskripsi);
-    
-    await pool.query(
-      'INSERT INTO sigab_app.notifikasi (judul, pesan, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) ON CONFLICT DO NOTHING',
-      ['Informasi Banjir Terbaru', deskripsi]
-    );
-    console.log('[BANJIR][DB] Notifikasi berhasil disimpan ke database');
   } catch (error) {
     console.error('[BANJIR][CRON][ERROR]', error.message);
   } finally {

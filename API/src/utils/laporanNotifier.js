@@ -3,6 +3,16 @@ const { sendFcmTopicNotification } = require('./fcm');
 const { kirimWhatsappKeSemuaUser } = require('./twilioNotifier');
 
 async function kirimNotifikasiTigaLaporanValid() {
+  // Simpan ke tabel notifikasi dulu
+  await pool.query(
+    `INSERT INTO sigab_app.notifikasi (judul, pesan, created_at, updated_at)
+     VALUES ($1, $2, NOW(), NOW())`,
+    [
+      'Peringatan Dini Banjir',
+      'Terdapat 3 laporan banjir valid hari ini. Mohon waspada dan perhatikan informasi lebih lanjut.'
+    ]
+  );
+  // Kirim ke FCM
   await sendFcmTopicNotification(
     'peringatan-umum',
     'Peringatan Dini Banjir',
@@ -35,14 +45,6 @@ async function cekDanKirimNotifikasiTigaLaporanValid() {
 
   if (totalValid >= 3 && notif.rows.length === 0) {
     await kirimNotifikasiTigaLaporanValid();
-    await pool.query(
-      `INSERT INTO sigab_app.notifikasi (judul, pesan, created_at, updated_at)
-       VALUES ($1, $2, NOW(), NOW())`,
-      [
-        'Peringatan Dini Banjir',
-        'Terdapat 3 laporan banjir valid hari ini. Mohon waspada dan perhatikan informasi lebih lanjut.'
-      ]
-    );
     console.log('[CRON][LAPORAN] Notifikasi 3 laporan valid dikirim.');
   } else {
     console.log('[CRON][LAPORAN] Belum memenuhi syarat atau sudah dikirim.');
