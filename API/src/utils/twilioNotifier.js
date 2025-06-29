@@ -10,17 +10,22 @@ const client = twilio(accountSid, authToken);
 async function kirimWhatsappKeSemuaUser(pesan) {
   const { rows } = await pool.query('SELECT nomor_wa FROM sigab_app.user_app WHERE nomor_wa IS NOT NULL');
   for (const user of rows) {
-    const nomor = user.nomor_wa;
+    let nomor = user.nomor_wa;
     if (!nomor) continue;
+    // Normalisasi nomor: ganti 0 di depan dengan 62
+    let nomorWa = nomor;
+    if (nomorWa.startsWith('0')) {
+      nomorWa = '62' + nomorWa.slice(1);
+    }
     try {
       await client.messages.create({
         from: whatsappSender,
-        to: `whatsapp:${nomor}`,
+        to: `whatsapp:${nomorWa}`,
         body: pesan,
       });
-      console.log(`[TWILIO] WhatsApp sent to ${nomor}`);
+      console.log(`[TWILIO] WhatsApp sent to ${nomorWa}`);
     } catch (e) {
-      console.error(`[TWILIO] Failed to send to ${nomor}:`, e.message);
+      console.error(`[TWILIO] Failed to send to ${nomorWa}:`, e.message);
     }
   }
 }
