@@ -1,6 +1,5 @@
 const pool = require('../config/database');
 const { sendFcmTopicNotification } = require('./fcm');
-const { kirimWhatsappKeSemuaUser } = require('./twilioNotifier');
 
 async function kirimNotifikasiTigaLaporanValid() {
   await sendFcmTopicNotification(
@@ -8,9 +7,6 @@ async function kirimNotifikasiTigaLaporanValid() {
     'Peringatan Dini Banjir',
     'Terdapat 3 laporan banjir valid hari ini. Mohon waspada dan perhatikan informasi lebih lanjut.'
   );
-
-    // Kirim WhatsApp ke semua user
-  await kirimWhatsappKeSemuaUser(pesan);
 }
 
 // Fungsi untuk pengecekan dan pengiriman via cron
@@ -37,8 +33,8 @@ async function cekDanKirimNotifikasiTigaLaporanValid() {
   if (totalValid >= 3 && notif.rows.length === 0) {
     await kirimNotifikasiTigaLaporanValid();
     await pool.query(
-      `INSERT INTO sigab_app.notifikasi (judul, pesan)
-       VALUES ($1, $2)`,
+      `INSERT INTO sigab_app.notifikasi (judul, pesan, created_at, updated_at)
+       VALUES ($1, $2, NOW(), NOW())`,
       [
         'Peringatan Dini Banjir',
         'Terdapat 3 laporan banjir valid hari ini. Mohon waspada dan perhatikan informasi lebih lanjut.'

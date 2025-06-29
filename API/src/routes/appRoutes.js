@@ -185,6 +185,9 @@ router.get('/check-weather-warning', notifikasiController.checkWeatherWarning);
 // Endpoint untuk mendapatkan riwayat notifikasi
 router.get('/notification-history', notifikasiController.getNotificationHistory);
 
+// Endpoint untuk menghapus notifikasi hari ini (untuk testing)
+router.delete('/clear-today-notifications', notifikasiController.clearTodayNotifications);
+
 router.get('/cuaca',informasiCuacaController.getWeather);
 
 router.get('/latest-flood-info', informasiBanjirController.getLatestFloodInfo);
@@ -192,8 +195,8 @@ router.get('/latest-flood-info', informasiBanjirController.getLatestFloodInfo);
 // Endpoint untuk register FCM token
 router.post('/register-fcm-token', fcmController.registerFcmToken);
 
-// Endpoint untuk broadcast notifikasi FCM tes (DIKOMENTARI)
-// router.post('/broadcast-fcm-test', notifikasiController.broadcastTestNotification);
+// Endpoint untuk broadcast notifikasi FCM tes
+router.post('/broadcast-fcm-test', notifikasiController.broadcastTestNotification);
 
 // router.post('/notifikasi/test-banjir', notifikasiController.testNotifikasiBanjir);
 // router.post('/notifikasi/test-cuaca', notifikasiController.testNotifikasiCuaca);
