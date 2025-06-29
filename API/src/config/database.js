@@ -14,40 +14,35 @@ const {
   DB_USER,
   DB_PASSWORD,
   DB_SCHEMA,
-  NODE_ENV
+  NODE_ENV,
+  DATABASE_URL
 } = process.env;
 
 // Create connection pool configuration
-// Hapus atau gunakan salah satu dari konfigurasi pool ini
-// const poolConfig = {
-//   host: DB_HOST,
-//   port: parseInt(DB_PORT, 10),
-//   database: DB_NAME,
-//   user: DB_USER,
-//   password: DB_PASSWORD,
-//   schema: DB_SCHEMA,
-//   // Set additional options based on environment
-//   ssl: NODE_ENV === 'production',
-//   // Add statement timeout to prevent long-running queries
-//   statement_timeout: 30000, // 30 seconds
-//   // Connection pool settings
-//   max: 20, // Maximum number of clients in the pool
-//   idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
-//   connectionTimeoutMillis: 10000, // How long to wait for a connection to become available
-// };
+// Prioritize DATABASE_URL for Railway deployment
+const poolConfig = DATABASE_URL ? {
+  connectionString: DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+} : {
+  host: DB_HOST,
+  port: parseInt(DB_PORT, 10),
+  database: DB_NAME,
+  user: DB_USER,
+  password: String(DB_PASSWORD),
+  ssl: {
+    rejectUnauthorized: false
+  },
+  // Connection pool settings for better performance
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
+  statement_timeout: 30000
+};
 
 // Create connection pool
-// Dan
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: String(process.env.DB_PASSWORD),
-  ssl: {
-    rejectUnauthorized: false // Diperlukan untuk koneksi ke Aiven
-  }
-});
+const pool = new Pool(poolConfig);
 
 // Handle pool events
 pool.on('connect', () => {
@@ -56,7 +51,10 @@ pool.on('connect', () => {
 
 pool.on('error', (err) => {
   logger.error('Unexpected error on idle PostgreSQL client', err);
-  process.exit(-1);
+  // Don't exit process in production, let it retry
+  if (NODE_ENV !== 'production') {
+    process.exit(-1);
+  }
 });
 
 /**
@@ -116,9 +114,20 @@ const testConnection = async () => {
   }
 };
 
+// Graceful shutdown
+const closePool = async () => {
+  try {
+    await pool.end();
+    logger.info('Database pool closed successfully');
+  } catch (err) {
+    logger.error('Error closing database pool', err);
+  }
+};
+
 module.exports = {
   query,
   getTransactionClient,
   testConnection,
+  closePool,
   pool
 };
