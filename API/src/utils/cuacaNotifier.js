@@ -71,16 +71,17 @@ async function kirimNotifikasiCuaca() {
     const cuaca = hujanForecast.weather_desc;
     const deskripsi = `Peringatan dini: ${cuaca} diperkirakan terjadi pada pukul ${jam}.`;
 
-    // Cek duplikasi hanya untuk hari ini (berdasarkan judul saja)
+    // Cek duplikasi hanya untuk hari ini
     const cek = await pool.query(
       `SELECT 1 FROM sigab_app.notifikasi 
        WHERE judul = $1 
+         AND pesan = $2 
          AND DATE(created_at) = CURRENT_DATE
        LIMIT 1`,
-      ['Peringatan Dini Cuaca']
+      ['Peringatan Dini Cuaca', deskripsi]
     );
     if (cek.rows.length > 0) {
-      console.log('[CUACA][CRON] Notifikasi cuaca sudah pernah dikirim hari ini, skip.');
+      console.log('[CUACA][CRON] Notifikasi cuaca ini sudah pernah dikirim hari ini, skip.');
       return; // Return dari dalam try-finally
     }
 
@@ -92,15 +93,8 @@ async function kirimNotifikasiCuaca() {
       { jam, cuaca }
     );
     console.log('[CUACA][FCM] Selesai kirim notifikasi ke topic: peringatan-umum');
-    
-    // Delay 2 detik sebelum kirim WhatsApp untuk menghindari duplikasi
-    console.log('[CUACA][DELAY] Menunggu 2 detik sebelum kirim WhatsApp...');
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Kirim WhatsApp ke semua user
-    console.log('[CUACA][TWILIO] Akan mengirim WhatsApp...');
-    await kirimWhatsappKeSemuaUser(deskripsi);
-    console.log('[CUACA][TWILIO] Selesai mengirim WhatsApp');
+      // Kirim WhatsApp ke semua user
+    await kirimWhatsappKeSemuaUser(pesan);
 
     await pool.query(
       'INSERT INTO sigab_app.notifikasi (judul, pesan, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) ON CONFLICT DO NOTHING',
