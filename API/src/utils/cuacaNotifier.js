@@ -2,6 +2,7 @@ const pool = require('../config/database');
 const { sendFcmTopicNotification } = require('./fcm');
 const axios = require('axios');
 const isDemo = process.env.DEMO_MODE === 'true';
+const { kirimWhatsappKeSemuaUser } = require('./twilioNotifier');
 
 // Fungsi untuk kirim notifikasi peringatan dini cuaca berdasarkan response BMKG
 async function kirimNotifikasiCuaca() {
@@ -86,6 +87,9 @@ async function kirimNotifikasiCuaca() {
     { jam, cuaca }
   );
   console.log('[CUACA][FCM] Selesai kirim notifikasi ke topic: peringatan-umum');
+
+  // Kirim WhatsApp ke semua user
+  await kirimWhatsappKeSemuaUser(deskripsi);
 
   // Simpan ke tabel notifikasi
   await pool.query(

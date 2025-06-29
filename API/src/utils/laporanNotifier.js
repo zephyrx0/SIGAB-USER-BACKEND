@@ -1,5 +1,6 @@
 const pool = require('../config/database');
 const { sendFcmTopicNotification } = require('./fcm');
+const { kirimWhatsappKeSemuaUser } = require('./twilioNotifier');
 
 async function kirimNotifikasiTigaLaporanValid() {
   await sendFcmTopicNotification(
@@ -7,6 +8,8 @@ async function kirimNotifikasiTigaLaporanValid() {
     'Peringatan Dini Banjir',
     'Terdapat 3 laporan banjir valid hari ini. Mohon waspada dan perhatikan informasi lebih lanjut.'
   );
+  // Kirim WhatsApp ke semua user
+  await kirimWhatsappKeSemuaUser('Terdapat 3 laporan banjir valid hari ini. Mohon waspada dan perhatikan informasi lebih lanjut.');
 }
 
 // Fungsi untuk pengecekan dan pengiriman via cron
