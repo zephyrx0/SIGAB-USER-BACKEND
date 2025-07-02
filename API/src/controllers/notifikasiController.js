@@ -251,8 +251,7 @@ exports.checkWeatherWarning = async (req, res) => {
     }
     if (rainFound && rainTime) {
       // Format jam dengan zona waktu WIB yang benar
-      const wibTime = new Date(rainTime.getTime() + (7 * 60 * 60 * 1000)); // UTC+7
-      const timeFormat = wibTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+      const timeFormat = rainTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
       const msg = `Peringatan: Diperkirakan hujan hari ini pada pukul ${timeFormat} WIB. Siapkan payung dan waspadai genangan air!`;
       console.log('[WEATHER] Mengirim notifikasi cuaca hujan:', msg);
       return res.status(200).json({
