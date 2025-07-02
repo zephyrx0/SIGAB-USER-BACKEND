@@ -140,7 +140,7 @@ const uploadToSupabase = async (req, res, next) => {
 router.post('/register', userController.register);
 router.post('/login', userController.login);
 router.post('/logout', userController.logoutUser);
-router.get('/users', userController.getAllUsers);
+// router.get('/users', userController.getAllUsers);
 
 // User profile endpoints (langsung di /api)
 router.get('/profile', verifyToken, userController.viewProfile);
