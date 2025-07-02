@@ -248,6 +248,9 @@ exports.checkWeatherWarning = async (req, res) => {
       // Pastikan localTime benar-benar tanggal hari ini
       const localTimeStr = localTime.toISOString().split('T')[0];
       if (localTimeStr !== todayStr) continue;
+      // Pastikan jam forecast >= jam sekarang (WIB)
+      const nowWIB = new Date(new Date().getTime() + (7 * 60 * 60 * 1000));
+      if (localTime < nowWIB) continue;
 
       if (weatherDesc.includes('hujan') || (weatherCode && weatherCode >= 60)) {
         rainFound = true;
