@@ -245,10 +245,11 @@ exports.checkWeatherWarning = async (req, res) => {
       } else {
         localTime = new Date(forecast.local_datetime.replace(' ', 'T') + '+07:00');
       }
-      const diffHours = (localTime - today) / (1000 * 60 * 60);
-      console.log(`[WEATHER] Cek forecast: desc=${weatherDesc}, code=${weatherCode}, waktu=${forecast.local_datetime}, diffHours=${diffHours}`);
-      if (diffHours >= 0 && diffHours <= 24 && 
-          (weatherDesc.includes('hujan') || (weatherCode && weatherCode >= 60))) {
+      // Pastikan localTime benar-benar tanggal hari ini
+      const localTimeStr = localTime.toISOString().split('T')[0];
+      if (localTimeStr !== todayStr) continue;
+
+      if (weatherDesc.includes('hujan') || (weatherCode && weatherCode >= 60)) {
         rainFound = true;
         rainTime = localTime;
         console.log('[WEATHER] Hujan ditemukan pada:', rainTime);
