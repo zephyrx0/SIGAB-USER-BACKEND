@@ -182,9 +182,9 @@ exports.checkWeatherWarning = async (req, res) => {
     console.log('[WEATHER] Data BMKG diterima:', JSON.stringify(response.data).slice(0, 500)); // log sebagian data
     
     // === DEMO MODE: Manipulasi data untuk demo - ubah semua cuaca menjadi hujan ===
-    const manipulatedResponseData = manipulateBMKGDataForDemo(response.data);
+    // const manipulatedResponseData = manipulateBMKGDataForDemo(response.data);
     // === ORIGINAL CODE (dikomentari untuk demo) ===
-    // const manipulatedResponseData = response.data;
+    const manipulatedResponseData = response.data;
     
     let cuacaList = [];
     if (Array.isArray(manipulatedResponseData)) {
