@@ -238,7 +238,13 @@ exports.checkWeatherWarning = async (req, res) => {
       if (!forecast.weather_desc || !forecast.local_datetime) continue;
       const weatherDesc = forecast.weather_desc.toLowerCase();
       const weatherCode = forecast.weather;
-      const localTime = new Date(forecast.local_datetime);
+      // Perbaikan parsing waktu agar sesuai WIB
+      let localTime;
+      if (forecast.local_datetime.includes('+07:00')) {
+        localTime = new Date(forecast.local_datetime.replace(' ', 'T'));
+      } else {
+        localTime = new Date(forecast.local_datetime.replace(' ', 'T') + '+07:00');
+      }
       const diffHours = (localTime - today) / (1000 * 60 * 60);
       console.log(`[WEATHER] Cek forecast: desc=${weatherDesc}, code=${weatherCode}, waktu=${forecast.local_datetime}, diffHours=${diffHours}`);
       if (diffHours >= 0 && diffHours <= 24 && 
