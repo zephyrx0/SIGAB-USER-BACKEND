@@ -25,9 +25,13 @@ async function kirimNotifikasiCuaca() {
   if (isDemo) {
     // Data mock: selalu ada hujan 1 jam dari sekarang
     const now = new Date();
+    // Konversi ke WIB (UTC+7)
+    const wib = new Date(now.getTime() + (7 * 60 * 60 * 1000));
+    // Format ke string ISO dengan offset +07:00
+    const localDatetime = wib.toISOString().replace('Z', '+07:00');
     const mockForecast = {
       weather_desc: 'Hujan Lebat',
-      local_datetime: new Date(now.getTime() + 60 * 60 * 1000).toISOString()
+      local_datetime: localDatetime
     };
     data = { data: [{ cuaca: [[mockForecast]] }] };
     console.log('[DEMO MODE] Menggunakan data cuaca mock:', data);
