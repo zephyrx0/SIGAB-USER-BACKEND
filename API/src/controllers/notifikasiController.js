@@ -231,6 +231,14 @@ exports.checkWeatherWarning = async (req, res) => {
       });
     }
 
+    // Log semua forecast hari ini
+    console.log('[WEATHER] Forecasts for today:');
+    for (const forecast of todayForecasts) {
+      console.log(
+        `desc=${forecast.weather_desc}, code=${forecast.weather}, local_datetime=${forecast.local_datetime}`
+      );
+    }
+
     // --- Notifikasi cuaca hujan (aktif) ---
     let rainFound = false;
     let rainTime = null;
@@ -250,9 +258,11 @@ exports.checkWeatherWarning = async (req, res) => {
       if (localTimeStr !== todayStr) continue;
       // Pastikan jam forecast >= jam sekarang (WIB)
       const nowWIB = new Date(new Date().getTime() + (7 * 60 * 60 * 1000));
+      console.log('[WEATHER] nowWIB:', nowWIB.toISOString());
       if (localTime < nowWIB) continue;
 
       if (weatherDesc.includes('hujan') || (weatherCode && weatherCode >= 60)) {
+        console.log('[WEATHER] Akan mengirim notifikasi untuk forecast:', forecast);
         rainFound = true;
         rainTime = localTime;
         console.log('[WEATHER] Hujan ditemukan pada:', rainTime);
