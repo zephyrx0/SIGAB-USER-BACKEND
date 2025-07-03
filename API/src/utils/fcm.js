@@ -39,23 +39,23 @@ function formatFcmData(data) {
   return formattedData;
 }
 
-// Fungsi untuk kirim notifikasi ke token spesifik (disimpan untuk device offline)
+// Fungsi untuk kirim notifikasi ke token spesifik (standar)
 async function sendFcmNotification(token, title, body, data = {}) {
   try {
     const accessToken = await getAccessToken();
     const url = `https://fcm.googleapis.com/v1/projects/${PROJECT_ID}/messages:send`;
 
-    // Format data untuk FCM
-    const formattedData = formatFcmData(data);
+    // Hapus key title/body dari data jika ada
+    const { title: _t, body: _b, ...cleanData } = formatFcmData(data);
 
     const message = {
       message: {
         token,
-        notification: { 
-          title, 
-          body 
+        notification: {
+          title,
+          body
         },
-        data: formattedData,
+        data: cleanData,
         android: {
           priority: 'high'
         },
@@ -241,22 +241,23 @@ async function sendFcmToAllTokens(title, body, data = {}) {
   return { success, fail, results, invalidTokens };
 }
 
+// Fungsi untuk kirim notifikasi ke topic (standar)
 async function sendFcmTopicNotification(topic, title, body, data = {}) {
   try {
-  const accessToken = await getAccessToken();
-  const url = `https://fcm.googleapis.com/v1/projects/${PROJECT_ID}/messages:send`;
+    const accessToken = await getAccessToken();
+    const url = `https://fcm.googleapis.com/v1/projects/${PROJECT_ID}/messages:send`;
 
-    // Format data untuk FCM
-    const formattedData = formatFcmData(data);
+    // Hapus key title/body dari data jika ada
+    const { title: _t, body: _b, ...cleanData } = formatFcmData(data);
 
-  const message = {
-    message: {
-      topic,
-        notification: { 
-          title, 
-          body 
+    const message = {
+      message: {
+        topic,
+        notification: {
+          title,
+          body
         },
-        data: formattedData,
+        data: cleanData,
         android: {
           priority: 'high'
         },
@@ -336,23 +337,23 @@ async function cleanupInvalidTokens() {
   return { validTokens, invalidTokens };
 }
 
-// Fungsi untuk kirim notifikasi dengan collapsible key (untuk offline storage multiple notifications)
+// Fungsi untuk kirim notifikasi dengan collapsible key (standar)
 async function sendFcmCollapsibleNotification(token, title, body, data = {}, collapseKey = 'default') {
   try {
     const accessToken = await getAccessToken();
     const url = `https://fcm.googleapis.com/v1/projects/${PROJECT_ID}/messages:send`;
 
-    // Format data untuk FCM
-    const formattedData = formatFcmData(data);
+    // Hapus key title/body dari data jika ada
+    const { title: _t, body: _b, ...cleanData } = formatFcmData(data);
 
     const message = {
       message: {
         token,
-        notification: { 
-          title, 
-          body 
+        notification: {
+          title,
+          body
         },
-        data: formattedData,
+        data: cleanData,
         android: {
           priority: 'high',
           collapse_key: collapseKey,
@@ -369,18 +370,18 @@ async function sendFcmCollapsibleNotification(token, title, body, data = {}, col
             'apns-collapse-id': collapseKey
           }
         }
-    },
-  };
+      },
+    };
 
-  const response = await axios.post(url, message, {
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
+    const response = await axios.post(url, message, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
       timeout: 10000
-  });
+    });
 
-  return response.data;
+    return response.data;
   } catch (error) {
     if (error.response) {
       console.error(`[FCM COLLAPSIBLE ERROR] Status: ${error.response.status}, Data:`, error.response.data);

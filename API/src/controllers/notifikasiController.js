@@ -5,6 +5,7 @@ const { kirimNotifikasiBanjirTerbaru } = require('../utils/banjirNotifier');
 const { kirimNotifikasiCuaca } = require('../utils/cuacaNotifier');
 const cron = require('node-cron');
 const { cekDanKirimNotifikasiTigaLaporanValid } = require('../utils/laporanNotifier');
+const logger = require('../utils/logger');
 
 // Scheduler: Notifikasi banjir setiap 10 menit
 cron.schedule('*/10 * * * * *', async () => {
@@ -16,7 +17,7 @@ cron.schedule('*/10 * * * * *', async () => {
   }
 });
 
-cron.schedule('*/12 * * * * *', async () => {
+cron.schedule('*/10 * * * * *', async () => {
   try {
     await cekDanKirimNotifikasiTigaLaporanValid();
     // Log akan muncul di dalam fungsi jika notifikasi benar-benar dikirim
@@ -26,7 +27,7 @@ cron.schedule('*/12 * * * * *', async () => {
 });
 
 // Scheduler: Notifikasi cuaca setiap 30 menit (diubah dari 10 detik)
-cron.schedule('*/15 * * * * *', async () => {
+cron.schedule('*/10 * * * * *', async () => {
   try {
     await kirimNotifikasiCuaca();
     // Log akan muncul di dalam fungsi jika notifikasi benar-benar dikirim
@@ -213,12 +214,11 @@ exports.checkWeatherWarning = async (req, res) => {
         if (!Array.isArray(period)) continue;
         for (const forecast of period) {
           if (!forecast.local_datetime) continue;
-          // Ambil hanya tanggal (YYYY-MM-DD) dari local_datetime
-          const localDateStr = forecast.local_datetime.split(' ')[0] || forecast.local_datetime.split('T')[0];
-          console.log('[WEATHER] local_datetime:', forecast.local_datetime, '->', localDateStr, 'vs todayStr:', todayStr);
-          if (localDateStr === todayStr) {
-            todayForecasts.push(forecast);
-          }
+          // Ambil tanggal langsung dari string BMKG
+          const localDateStr = forecast.local_datetime.split(' ')[0];
+          if (localDateStr !== todayStr) continue;
+          const localTime = new Date(forecast.local_datetime.replace(' ', 'T'));
+          todayForecasts.push(forecast);
         }
       }
     }
@@ -231,10 +231,12 @@ exports.checkWeatherWarning = async (req, res) => {
       });
     }
 
+    // Log seluruh data BMKG yang diterima
+    logger.info('[WEATHER] Data BMKG:', JSON.stringify(response.data));
     // Log semua forecast hari ini
-    console.log('[WEATHER] Forecasts for today:');
+    logger.info('[WEATHER] Forecasts for today:');
     for (const forecast of todayForecasts) {
-      console.log(
+      logger.info(
         `desc=${forecast.weather_desc}, code=${forecast.weather}, local_datetime=${forecast.local_datetime}`
       );
     }
@@ -247,25 +249,22 @@ exports.checkWeatherWarning = async (req, res) => {
       const weatherDesc = forecast.weather_desc.toLowerCase();
       const weatherCode = forecast.weather;
       // Perbaikan parsing waktu agar sesuai WIB
-      let localTime;
-      if (forecast.local_datetime.includes('+07:00')) {
-        localTime = new Date(forecast.local_datetime.replace(' ', 'T'));
-      } else {
-        localTime = new Date(forecast.local_datetime.replace(' ', 'T') + '+07:00');
-      }
+      // Anggap local_datetime sudah WIB, parse tanpa offset
+      let localTime = new Date(forecast.local_datetime.replace(' ', 'T'));
       // Pastikan localTime benar-benar tanggal hari ini
       const localTimeStr = localTime.toISOString().split('T')[0];
       if (localTimeStr !== todayStr) continue;
       // Pastikan jam forecast >= jam sekarang (WIB)
       const nowWIB = new Date(new Date().getTime() + (7 * 60 * 60 * 1000));
-      console.log('[WEATHER] nowWIB:', nowWIB.toISOString());
-      if (localTime < nowWIB) continue;
+      logger.info('[WEATHER] nowWIB: ' + nowWIB.toISOString());
+      const diffMinutes = (localTime - nowWIB) / (1000 * 60);
+      if (diffMinutes < 30) continue; // Hanya kirim notifikasi jika hujan > 30 menit dari sekarang
 
       if (weatherDesc.includes('hujan') || (weatherCode && weatherCode >= 60)) {
-        console.log('[WEATHER] Akan mengirim notifikasi untuk forecast:', forecast);
+        logger.info('[WEATHER] Akan mengirim notifikasi untuk forecast: ' + JSON.stringify(forecast));
         rainFound = true;
         rainTime = localTime;
-        console.log('[WEATHER] Hujan ditemukan pada:', rainTime);
+        logger.info('[WEATHER] Hujan ditemukan pada: ' + rainTime.toISOString());
         break;
       }
     }
@@ -273,7 +272,7 @@ exports.checkWeatherWarning = async (req, res) => {
       // Format jam dengan zona waktu WIB yang benar
       const timeFormat = rainTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
       const msg = `Peringatan: Diperkirakan hujan hari ini pada pukul ${timeFormat} WIB. Siapkan payung dan waspadai genangan air!`;
-      console.log('[WEATHER] Mengirim notifikasi cuaca hujan:', msg);
+      logger.info('[WEATHER] Mengirim notifikasi cuaca hujan: ' + msg);
       return res.status(200).json({
         status: 'success',
         should_notify: true,
@@ -282,7 +281,7 @@ exports.checkWeatherWarning = async (req, res) => {
     }
     // --- Akhir notifikasi cuaca hujan ---
 
-    console.log('[WEATHER] Tidak ada peringatan cuaca khusus hari ini.');
+    logger.info('[WEATHER] Tidak ada peringatan cuaca khusus hari ini.');
     return res.status(200).json({
       status: 'success',
       should_notify: false,
