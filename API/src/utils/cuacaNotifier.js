@@ -29,18 +29,26 @@ async function kirimNotifikasiCuaca() {
   
   let data;
   if (isDemo) {
-    // Data mock: selalu ada hujan 1 jam dari sekarang
-    const now = new Date();
-    // Konversi ke WIB (UTC+7)
-    const wib = new Date(now.getTime() + (7 * 60 * 60 * 1000));
-    // Format ke string ISO dengan offset +07:00
-    const localDatetime = wib.toISOString().replace('Z', '+07:00');
-    const mockForecast = {
-      weather_desc: 'Hujan Lebat',
-      local_datetime: localDatetime
-    };
-    data = { data: [{ cuaca: [[mockForecast]] }] };
-    logger.info('[DEMO MODE] Menggunakan data cuaca mock: ' + JSON.stringify(data));
+    // Ambil data asli dari BMKG
+    const response = await axios.get('https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=32.04.12.2006');
+    data = response.data;
+    // Ubah semua weather_desc menjadi 'Hujan Lebat' (jam tetap dari BMKG)
+    if (data && Array.isArray(data.data)) {
+      for (const lokasi of data.data) {
+        if (lokasi.cuaca && Array.isArray(lokasi.cuaca)) {
+          for (const period of lokasi.cuaca) {
+            if (Array.isArray(period)) {
+              for (const forecast of period) {
+                if (forecast && typeof forecast === 'object') {
+                  forecast.weather_desc = 'Hujan Lebat';
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    logger.info('[DEMO MODE] Menggunakan data BMKG asli, cuaca diubah menjadi Hujan Lebat: ' + JSON.stringify(data));
   } else {
     // Data asli dari BMKG
     const response = await axios.get('https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=32.04.12.2006');
