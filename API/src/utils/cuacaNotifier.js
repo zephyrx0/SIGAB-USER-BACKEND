@@ -79,23 +79,33 @@ async function kirimNotifikasiCuaca() {
     );
   }
 
-  // Cari forecast terdekat yang weather_desc mengandung 'hujan'
   const now = new Date();
   const nowWIB = new Date(now.getTime() + (7 * 60 * 60 * 1000));
   logger.info('[WEATHER] nowWIB: ' + nowWIB.toISOString());
-  let hujanForecast = null;
+
+  // Kumpulkan semua forecast hujan yang waktunya > 30 menit dari sekarang
+  let hujanForecasts = [];
   for (const forecast of allForecasts) {
     if (!forecast.weather_desc || !forecast.local_datetime) continue;
     if (forecast.weather_desc.toLowerCase().includes('hujan')) {
-      // Ambil forecast hujan terdekat setelah waktu sekarang
       const forecastTime = new Date(forecast.local_datetime.replace(' ', 'T'));
-      // Filter: hanya forecast > 30 menit dari sekarang WIB
       const diffMinutes = (forecastTime - nowWIB) / (1000 * 60);
       if (diffMinutes < 30) continue;
-      logger.info('[WEATHER] Akan mengirim notifikasi untuk forecast: ' + JSON.stringify(forecast));
-      hujanForecast = forecast;
-      break;
+      hujanForecasts.push({ forecast, diffMinutes });
     }
+  }
+
+  // Log semua forecast hujan yang lolos filter
+  logger.info('[DEBUG] Semua forecast hujan yang lolos filter (>30 menit dari sekarang):');
+  hujanForecasts.forEach(({ forecast, diffMinutes }) => {
+    logger.info(`local_datetime=${forecast.local_datetime}, diffMinutes=${diffMinutes}, weather_desc=${forecast.weather_desc}`);
+  });
+
+  // Pilih forecast dengan waktu terdekat
+  let hujanForecast = null;
+  if (hujanForecasts.length > 0) {
+    hujanForecasts.sort((a, b) => a.diffMinutes - b.diffMinutes);
+    hujanForecast = hujanForecasts[0].forecast;
   }
 
   if (!hujanForecast) {
@@ -103,11 +113,8 @@ async function kirimNotifikasiCuaca() {
     return;
   }
 
-  // Format jam dari local_datetime dengan zona waktu yang benar
-  const forecastTime = new Date(hujanForecast.local_datetime.replace(' ', 'T'));
-  // Tambahkan 7 jam untuk UTC+7 (WIB)
-  const wibTime = new Date(forecastTime.getTime() + (7 * 60 * 60 * 1000));
-  const jam = wibTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+  // Ambil jam langsung dari string local_datetime BMKG
+  const jam = hujanForecast.local_datetime.split(' ')[1].slice(0, 5); // 'HH:mm'
   const cuaca = hujanForecast.weather_desc;
   const deskripsi = `Peringatan dini: ${cuaca} diperkirakan terjadi pada pukul ${jam} WIB.`;
 
