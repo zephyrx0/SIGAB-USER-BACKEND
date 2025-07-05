@@ -141,16 +141,58 @@ async function sendFcmHybridNotification(title, body, data = {}) {
   let individualFailed = 0;
   const invalidTokens = [];
 
-  // 1. Kirim ke topic untuk device online (immediate delivery)
+  // 1. Kirim ke topic untuk device online (immediate delivery) dengan collapsible key
   try {
-    await sendFcmTopicNotification('peringatan-umum', title, body, enhancedData);
+    // Gunakan collapsible key untuk topic notification
+    const topicCollapseKey = `topic_${data.type || 'general'}_${Math.floor(Date.now() / (5 * 60 * 1000))}`; // Group per 5 menit
+    
+    const accessToken = await getAccessToken();
+    const url = `https://fcm.googleapis.com/v1/projects/${PROJECT_ID}/messages:send`;
+
+    const { title: _t, body: _b, ...cleanData } = formatFcmData(enhancedData);
+
+    const message = {
+      message: {
+        topic: 'peringatan-umum',
+        notification: {
+          title,
+          body
+        },
+        data: cleanData,
+        android: {
+          priority: 'high',
+          collapse_key: topicCollapseKey,
+          ttl: '604800s' // 7 hari TTL
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: 'default',
+              badge: 1
+            }
+          },
+          headers: {
+            'apns-collapse-id': topicCollapseKey
+          }
+        }
+      },
+    };
+
+    const response = await axios.post(url, message, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 10000
+    });
+    
     topicSuccess = true;
-    console.log('[FCM HYBRID] Topic notification sent successfully');
+    console.log('[FCM HYBRID] Topic notification sent successfully with collapse key:', topicCollapseKey);
   } catch (topicError) {
     console.error('[FCM HYBRID] Topic notification failed:', topicError.message);
   }
 
-  // 2. Kirim ke individual tokens untuk offline storage
+  // 2. Kirim ke individual tokens untuk offline storage dengan collapsible key
   const { rows } = await pool.query('SELECT token FROM sigab_app.fcm_tokens WHERE token IS NOT NULL');
   const tokens = rows.map(r => r.token);
 
@@ -159,7 +201,10 @@ async function sendFcmHybridNotification(title, body, data = {}) {
       // Add small delay to avoid rate limiting
       await new Promise(resolve => setTimeout(resolve, 50));
       
-      await sendFcmNotification(token, title, body, enhancedData);
+      // Gunakan collapsible key untuk individual notification
+      const individualCollapseKey = `individual_${data.type || 'general'}_${Math.floor(Date.now() / (5 * 60 * 1000))}`;
+      
+      await sendFcmCollapsibleNotification(token, title, body, enhancedData, individualCollapseKey);
       individualSuccess++;
     } catch (error) {
       individualFailed++;
@@ -185,7 +230,7 @@ async function sendFcmHybridNotification(title, body, data = {}) {
     }
   }
 
-  console.log(`[FCM HYBRID] Topic: ${topicSuccess ? 'SUCCESS' : 'FAILED'}, Individual: ${individualSuccess} sent, ${individualFailed} failed, ${invalidTokens.length} invalid removed`);
+  console.log(`[FCM HYBRID] Topic: ${topicSuccess ? 'SUCCESS' : 'FAILED'}, Individual: ${individualSuccess} sent, ${individualFailed} failed, ${invalidTokens.length} invalid removed, Collapsible: enabled`);
   
   return {
     topicSuccess,
