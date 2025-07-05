@@ -34,25 +34,16 @@ async function kirimNotifikasiCuaca() {
     const response = await axios.get('https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=32.04.12.2006');
     data = response.data;
     
-    // Manipulasi data untuk demo: ubah cuaca menjadi hujan dan sesuaikan waktu
+    // Manipulasi data untuk demo: ubah cuaca menjadi hujan, waktu tetap dari BMKG
     if (data && Array.isArray(data.data)) {
-      const now = new Date();
-      const nowWIB = new Date(now.getTime() + (7 * 60 * 60 * 1000));
-      
       for (const lokasi of data.data) {
         if (lokasi.cuaca && Array.isArray(lokasi.cuaca)) {
           for (const period of lokasi.cuaca) {
             if (Array.isArray(period)) {
               for (const forecast of period) {
                 if (forecast && typeof forecast === 'object') {
-                  // Ubah weather_desc menjadi hujan
+                  // Ubah weather_desc menjadi hujan, tapi waktu tetap dari BMKG
                   forecast.weather_desc = 'Hujan Lebat';
-                  
-                  // Manipulasi waktu: set hujan 2 jam dari sekarang
-                  const rainTime = new Date(nowWIB.getTime() + (2 * 60 * 60 * 1000)); // 2 jam dari sekarang
-                  const dateStr = rainTime.toISOString().split('T')[0]; // YYYY-MM-DD
-                  const timeStr = rainTime.toTimeString().slice(0, 5); // HH:mm
-                  forecast.local_datetime = `${dateStr} ${timeStr}`;
                 }
               }
             }
@@ -60,7 +51,7 @@ async function kirimNotifikasiCuaca() {
         }
       }
     }
-    logger.info('[DEMO MODE] Data BMKG dimanipulasi: cuaca=hujan, waktu=2 jam dari sekarang');
+    logger.info('[DEMO MODE] Data BMKG dimanipulasi: cuaca=hujan, waktu tetap dari BMKG');
   } else {
     // Data asli dari BMKG
     const response = await axios.get('https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=32.04.12.2006');
@@ -113,11 +104,17 @@ async function kirimNotifikasiCuaca() {
     logger.info(`local_datetime=${forecast.local_datetime}, diffMinutes=${diffMinutes}, weather_desc=${forecast.weather_desc}`);
   });
 
-  // Pilih forecast dengan waktu terdekat
+  // Pilih forecast dengan waktu terdekat dari data BMKG
   let hujanForecast = null;
   if (hujanForecasts.length > 0) {
-    hujanForecasts.sort((a, b) => a.diffMinutes - b.diffMinutes);
+    // Urutkan berdasarkan waktu terdekat (bukan berdasarkan diffMinutes)
+    hujanForecasts.sort((a, b) => {
+      const timeA = new Date(a.forecast.local_datetime.replace(' ', 'T'));
+      const timeB = new Date(b.forecast.local_datetime.replace(' ', 'T'));
+      return timeA - timeB;
+    });
     hujanForecast = hujanForecasts[0].forecast;
+    logger.info(`[CUACA][CRON] Dipilih forecast hujan terdekat: ${hujanForecast.local_datetime} (${hujanForecast.weather_desc})`);
   }
 
   if (!hujanForecast) {
