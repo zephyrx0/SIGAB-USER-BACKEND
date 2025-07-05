@@ -14,16 +14,17 @@ async function kirimNotifikasiCuaca() {
   const allNotif = await pool.query("SELECT * FROM sigab_app.notifikasi WHERE created_at >= (NOW() AT TIME ZONE 'Asia/Jakarta')::date");
   logger.info('[DEBUG] Isi tabel notifikasi hari ini (WIB):', JSON.stringify(allNotif.rows));
   
-  // Cek apakah sudah ada notifikasi cuaca hari ini
+  // Cek apakah sudah ada notifikasi cuaca hari ini (dengan deduplikasi yang lebih ketat)
   const existingNotification = await pool.query(
     `SELECT 1 FROM sigab_app.notifikasi 
      WHERE judul = 'Peringatan Dini Cuaca'
      AND created_at >= (NOW() AT TIME ZONE 'Asia/Jakarta')::date
+     AND created_at >= NOW() - INTERVAL '1 hour'
      LIMIT 1`
   );
   
   if (existingNotification.rows.length > 0) {
-    logger.info('[CUACA][CRON] Notifikasi cuaca sudah pernah dikirim hari ini, skip.');
+    logger.info('[CUACA][CRON] Notifikasi cuaca sudah pernah dikirim dalam 1 jam terakhir, skip.');
     return;
   }
   
@@ -32,15 +33,26 @@ async function kirimNotifikasiCuaca() {
     // Ambil data asli dari BMKG
     const response = await axios.get('https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=32.04.12.2006');
     data = response.data;
-    // Ubah semua weather_desc menjadi 'Hujan Lebat' (jam tetap dari BMKG)
+    
+    // Manipulasi data untuk demo: ubah cuaca menjadi hujan dan sesuaikan waktu
     if (data && Array.isArray(data.data)) {
+      const now = new Date();
+      const nowWIB = new Date(now.getTime() + (7 * 60 * 60 * 1000));
+      
       for (const lokasi of data.data) {
         if (lokasi.cuaca && Array.isArray(lokasi.cuaca)) {
           for (const period of lokasi.cuaca) {
             if (Array.isArray(period)) {
               for (const forecast of period) {
                 if (forecast && typeof forecast === 'object') {
+                  // Ubah weather_desc menjadi hujan
                   forecast.weather_desc = 'Hujan Lebat';
+                  
+                  // Manipulasi waktu: set hujan 2 jam dari sekarang
+                  const rainTime = new Date(nowWIB.getTime() + (2 * 60 * 60 * 1000)); // 2 jam dari sekarang
+                  const dateStr = rainTime.toISOString().split('T')[0]; // YYYY-MM-DD
+                  const timeStr = rainTime.toTimeString().slice(0, 5); // HH:mm
+                  forecast.local_datetime = `${dateStr} ${timeStr}`;
                 }
               }
             }
@@ -48,7 +60,7 @@ async function kirimNotifikasiCuaca() {
         }
       }
     }
-    logger.info('[DEMO MODE] Menggunakan data BMKG asli, cuaca diubah menjadi Hujan Lebat: ' + JSON.stringify(data));
+    logger.info('[DEMO MODE] Data BMKG dimanipulasi: cuaca=hujan, waktu=2 jam dari sekarang');
   } else {
     // Data asli dari BMKG
     const response = await axios.get('https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=32.04.12.2006');
@@ -117,6 +129,9 @@ async function kirimNotifikasiCuaca() {
   const jam = hujanForecast.local_datetime.split(' ')[1].slice(0, 5); // 'HH:mm'
   const cuaca = hujanForecast.weather_desc;
   const deskripsi = `Peringatan dini: ${cuaca} diperkirakan terjadi pada pukul ${jam} WIB.`;
+  
+  // Generate unique notification ID untuk deduplikasi
+  const notificationId = Date.now().toString();
 
   // Cek manual sebelum insert (cek judul dan pesan)
   const notifCheck = await pool.query(
@@ -148,10 +163,12 @@ async function kirimNotifikasiCuaca() {
         jam, 
         cuaca, 
         type: 'cuaca',
-        source: 'cron_job'
+        source: 'cron_job',
+        notification_id: notificationId,
+        timestamp: new Date().toISOString()
       }
     );
-    logger.info(`[CUACA][FCM SMART COLLAPSIBLE] Topic: ${fcmResult.topicSuccess ? 'SUCCESS' : 'FAILED'}, Individual: ${fcmResult.individualSuccess} sent, ${fcmResult.individualFailed} failed, Invalid removed: ${fcmResult.invalidTokens?.length || 0}, TTL: 7 days`);
+    logger.info(`[CUACA][FCM SMART COLLAPSIBLE] Topic: ${fcmResult.topicSuccess ? 'SUCCESS' : 'FAILED'}, Individual: ${fcmResult.individualSuccess} sent, ${fcmResult.individualFailed} failed, Invalid removed: ${fcmResult.invalidTokens?.length || 0}, TTL: 7 days, Notification ID: ${notificationId}`);
   } catch (fcmError) {
     logger.error('[CUACA][FCM SMART COLLAPSIBLE] Error:', fcmError.message);
   }
