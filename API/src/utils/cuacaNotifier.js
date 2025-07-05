@@ -14,17 +14,16 @@ async function kirimNotifikasiCuaca() {
   const allNotif = await pool.query("SELECT * FROM sigab_app.notifikasi WHERE created_at >= (NOW() AT TIME ZONE 'Asia/Jakarta')::date");
   logger.info('[DEBUG] Isi tabel notifikasi hari ini (WIB):', JSON.stringify(allNotif.rows));
   
-  // Cek apakah sudah ada notifikasi cuaca hari ini (dengan deduplikasi yang lebih ketat)
+  // Cek apakah sudah ada notifikasi cuaca hari ini
   const existingNotification = await pool.query(
     `SELECT 1 FROM sigab_app.notifikasi 
      WHERE judul = 'Peringatan Dini Cuaca'
      AND created_at >= (NOW() AT TIME ZONE 'Asia/Jakarta')::date
-     AND created_at >= NOW() - INTERVAL '1 hour'
      LIMIT 1`
   );
   
   if (existingNotification.rows.length > 0) {
-    logger.info('[CUACA][CRON] Notifikasi cuaca sudah pernah dikirim dalam 1 jam terakhir, skip.');
+    logger.info('[CUACA][CRON] Notifikasi cuaca sudah pernah dikirim hari ini, skip.');
     return;
   }
   
@@ -33,8 +32,7 @@ async function kirimNotifikasiCuaca() {
     // Ambil data asli dari BMKG
     const response = await axios.get('https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=32.04.12.2006');
     data = response.data;
-    
-    // Manipulasi data untuk demo: ubah cuaca menjadi hujan, waktu tetap dari BMKG
+    // Ubah semua weather_desc menjadi 'Hujan Lebat' (jam tetap dari BMKG)
     if (data && Array.isArray(data.data)) {
       for (const lokasi of data.data) {
         if (lokasi.cuaca && Array.isArray(lokasi.cuaca)) {
@@ -42,7 +40,6 @@ async function kirimNotifikasiCuaca() {
             if (Array.isArray(period)) {
               for (const forecast of period) {
                 if (forecast && typeof forecast === 'object') {
-                  // Ubah weather_desc menjadi hujan, tapi waktu tetap dari BMKG
                   forecast.weather_desc = 'Hujan Lebat';
                 }
               }
@@ -51,7 +48,7 @@ async function kirimNotifikasiCuaca() {
         }
       }
     }
-    logger.info('[DEMO MODE] Data BMKG dimanipulasi: cuaca=hujan, waktu tetap dari BMKG');
+    logger.info('[DEMO MODE] Menggunakan data BMKG asli, cuaca diubah menjadi Hujan Lebat: ' + JSON.stringify(data));
   } else {
     // Data asli dari BMKG
     const response = await axios.get('https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=32.04.12.2006');
@@ -104,17 +101,11 @@ async function kirimNotifikasiCuaca() {
     logger.info(`local_datetime=${forecast.local_datetime}, diffMinutes=${diffMinutes}, weather_desc=${forecast.weather_desc}`);
   });
 
-  // Pilih forecast dengan waktu terdekat dari data BMKG
+  // Pilih forecast dengan waktu terdekat
   let hujanForecast = null;
   if (hujanForecasts.length > 0) {
-    // Urutkan berdasarkan waktu terdekat (bukan berdasarkan diffMinutes)
-    hujanForecasts.sort((a, b) => {
-      const timeA = new Date(a.forecast.local_datetime.replace(' ', 'T'));
-      const timeB = new Date(b.forecast.local_datetime.replace(' ', 'T'));
-      return timeA - timeB;
-    });
+    hujanForecasts.sort((a, b) => a.diffMinutes - b.diffMinutes);
     hujanForecast = hujanForecasts[0].forecast;
-    logger.info(`[CUACA][CRON] Dipilih forecast hujan terdekat: ${hujanForecast.local_datetime} (${hujanForecast.weather_desc})`);
   }
 
   if (!hujanForecast) {
@@ -130,17 +121,16 @@ async function kirimNotifikasiCuaca() {
   // Generate unique notification ID untuk deduplikasi
   const notificationId = Date.now().toString();
 
-  // Cek manual sebelum insert (cek judul dan pesan)
+  // Cek manual sebelum insert (cek judul dan pesan) - deduplikasi yang lebih ketat
   const notifCheck = await pool.query(
     `SELECT 1 FROM sigab_app.notifikasi 
      WHERE judul = 'Peringatan Dini Cuaca'
-     AND pesan = $1
-     AND created_at >= (NOW() AT TIME ZONE 'Asia/Jakarta')::date
+     AND created_at >= NOW() - INTERVAL '2 hours'
      LIMIT 1`,
-    [deskripsi]
+    []
   );
   if (notifCheck.rows.length > 0) {
-    logger.info('[CUACA][CRON] Notifikasi cuaca sudah pernah dikirim hari ini, skip.');
+    logger.info('[CUACA][CRON] Notifikasi cuaca sudah pernah dikirim dalam 2 jam terakhir, skip.');
     return;
   }
 

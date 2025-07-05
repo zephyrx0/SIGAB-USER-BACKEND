@@ -482,7 +482,13 @@ async function sendFcmSmartCollapsible(title, body, data = {}) {
       await new Promise(resolve => setTimeout(resolve, 50));
       
       // Smart collapse key berdasarkan type dan timestamp untuk grouping yang lebih baik
-      const collapseKey = `${data.type || 'general'}_${Math.floor(Date.now() / (5 * 60 * 1000))}`; // Group per 5 menit
+      // Untuk notifikasi cuaca, gunakan collapse key yang lebih agresif (per jam)
+      let collapseKey;
+      if (data.type === 'cuaca') {
+        collapseKey = `cuaca_${Math.floor(Date.now() / (60 * 60 * 1000))}`; // Group per 1 jam untuk cuaca
+      } else {
+        collapseKey = `${data.type || 'general'}_${Math.floor(Date.now() / (5 * 60 * 1000))}`; // Group per 5 menit untuk lainnya
+      }
       
       await sendFcmCollapsibleNotification(token, title, body, enhancedData, collapseKey);
       individualSuccess++;
