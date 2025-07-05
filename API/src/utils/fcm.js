@@ -491,6 +491,42 @@ async function sendFcmSmartCollapsible(title, body, data = {}) {
         notificationId
       };
     }
+  } else if (data.type === 'banjir') {
+    const recentCheck = await pool.query(
+      `SELECT 1 FROM sigab_app.notifikasi 
+       WHERE judul = 'Informasi Banjir Terbaru'
+       AND created_at >= NOW() - INTERVAL '30 minutes'
+       LIMIT 1`,
+      []
+    );
+    if (recentCheck.rows.length > 0) {
+      console.log('[FCM SMART COLLAPSIBLE] AGGRESIVE DEDUP: Recent banjir notification found, skipping individual sends');
+      return {
+        topicSuccess,
+        individualSuccess: 0,
+        individualFailed: 0,
+        invalidTokens: [],
+        notificationId
+      };
+    }
+  } else if (data.type === 'laporan') {
+    const recentCheck = await pool.query(
+      `SELECT 1 FROM sigab_app.notifikasi 
+       WHERE judul = 'Peringatan Laporan Banjir'
+       AND created_at >= NOW() - INTERVAL '30 minutes'
+       LIMIT 1`,
+      []
+    );
+    if (recentCheck.rows.length > 0) {
+      console.log('[FCM SMART COLLAPSIBLE] AGGRESIVE DEDUP: Recent laporan notification found, skipping individual sends');
+      return {
+        topicSuccess,
+        individualSuccess: 0,
+        individualFailed: 0,
+        invalidTokens: [],
+        notificationId
+      };
+    }
   }
 
   // 2. Kirim ke individual tokens dengan smart collapse key dan rate limiting
@@ -510,18 +546,28 @@ async function sendFcmSmartCollapsible(title, body, data = {}) {
         // Add small delay to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 100 + (index * 50)));
         
-        // Smart collapse key berdasarkan type dan timestamp untuk grouping yang lebih baik
-        // Untuk notifikasi cuaca, gunakan collapse key yang lebih agresif (per jam)
-        let collapseKey;
-        if (data.type === 'cuaca') {
-          // Collapse key yang sangat agresif untuk cuaca - per jam dengan timestamp
-          const hour = Math.floor(Date.now() / (60 * 60 * 1000));
-          const day = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
-          collapseKey = `cuaca_${day}_${hour}`; // Group per jam untuk cuaca
-        } else {
-          // Collapse key yang lebih ketat untuk notifikasi lainnya - per 2 menit
-          collapseKey = `${data.type || 'general'}_${Math.floor(Date.now() / (2 * 60 * 1000))}`; // Group per 2 menit
-        }
+              // Smart collapse key berdasarkan type dan timestamp untuk grouping yang lebih baik
+      // Untuk semua notifikasi, gunakan collapse key yang lebih agresif (per jam)
+      let collapseKey;
+      if (data.type === 'cuaca') {
+        // Collapse key yang sangat agresif untuk cuaca - per jam dengan timestamp
+        const hour = Math.floor(Date.now() / (60 * 60 * 1000));
+        const day = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
+        collapseKey = `cuaca_${day}_${hour}`; // Group per jam untuk cuaca
+      } else if (data.type === 'banjir') {
+        // Collapse key yang sangat agresif untuk banjir - per jam dengan timestamp
+        const hour = Math.floor(Date.now() / (60 * 60 * 1000));
+        const day = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
+        collapseKey = `banjir_${day}_${hour}`; // Group per jam untuk banjir
+      } else if (data.type === 'laporan') {
+        // Collapse key yang sangat agresif untuk laporan - per jam dengan timestamp
+        const hour = Math.floor(Date.now() / (60 * 60 * 1000));
+        const day = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
+        collapseKey = `laporan_${day}_${hour}`; // Group per jam untuk laporan
+      } else {
+        // Collapse key yang lebih ketat untuk notifikasi lainnya - per 2 menit
+        collapseKey = `${data.type || 'general'}_${Math.floor(Date.now() / (2 * 60 * 1000))}`; // Group per 2 menit
+      }
         
         await sendFcmCollapsibleNotification(token, title, body, enhancedData, collapseKey);
         return { token, status: 'success' };

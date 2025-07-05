@@ -6,61 +6,10 @@ const { kirimWhatsappKeSemuaUser } = require('./twilioNotifier');
 let isProcessing = false;
 
 async function kirimNotifikasiTigaLaporanValid() {
-  // AGGRESIVE DEDUPLICATION - Global lock untuk mencegah multiple execution
-  if (isProcessing) {
-    console.log('[LAPORAN][CRON] AGGRESIVE LOCK: Another process is already running, skipping...');
-    return;
-  }
-  
-  isProcessing = true;
-  
   try {
     // Generate unique notification ID untuk deduplikasi
     const notificationId = Date.now().toString();
-
-    // AGGRESIVE DEDUPLICATION - Database level
-    const notifCheck = await pool.query(
-      `SELECT 1 FROM sigab_app.notifikasi 
-       WHERE judul = 'Peringatan Laporan Banjir'
-       AND created_at >= NOW() - INTERVAL '4 hours'
-       LIMIT 1`,
-      []
-    );
-    if (notifCheck.rows.length > 0) {
-      console.log('[LAPORAN][CRON] AGGRESIVE DEDUP: Notifikasi laporan sudah pernah dikirim dalam 4 jam terakhir, skip.');
-      return;
-    }
-    
-    // AGGRESIVE DEDUPLICATION - Rate limiting per jam
-    const hourlyCheck = await pool.query(
-      `SELECT COUNT(*) as count FROM sigab_app.notifikasi 
-       WHERE judul = 'Peringatan Laporan Banjir'
-       AND created_at >= NOW() - INTERVAL '1 hour'`,
-      []
-    );
-    const hourlyCount = parseInt(hourlyCheck.rows[0].count);
-    if (hourlyCount >= 1) {
-      console.log(`[LAPORAN][CRON] AGGRESIVE RATE LIMIT: Sudah ada ${hourlyCount} notifikasi laporan dalam 1 jam terakhir, skip.`);
-      return;
-    }
-  
-    // AGGRESIVE DEDUPLICATION - Add random delay untuk mencegah race condition
-    const randomDelay = Math.floor(Math.random() * 5000) + 1000; // 1-6 detik delay
-    console.log(`[LAPORAN][CRON] Adding random delay: ${randomDelay}ms to prevent race conditions`);
-    await new Promise(resolve => setTimeout(resolve, randomDelay));
-    
-    // Double check setelah delay
-    const finalCheck = await pool.query(
-      `SELECT 1 FROM sigab_app.notifikasi 
-       WHERE judul = 'Peringatan Laporan Banjir'
-       AND created_at >= NOW() - INTERVAL '1 hour'
-       LIMIT 1`,
-      []
-    );
-    if (finalCheck.rows.length > 0) {
-      console.log('[LAPORAN][CRON] FINAL CHECK: Notifikasi laporan sudah dikirim dalam 1 jam terakhir setelah delay, skip.');
-      return;
-    }
+    console.log('[LAPORAN][FCM] Memulai pengiriman notifikasi dengan ID:', notificationId);
 
     // Simpan ke tabel notifikasi
     await pool.query(
@@ -94,41 +43,93 @@ async function kirimNotifikasiTigaLaporanValid() {
     // Kirim WhatsApp ke semua user
     await kirimWhatsappKeSemuaUser('Terdapat 3 laporan banjir valid hari ini. Mohon waspada dan perhatikan informasi lebih lanjut.');
     
+    console.log('[LAPORAN][FCM] Notifikasi berhasil dikirim dengan ID:', notificationId);
+    
+  } catch (error) {
+    console.error('[LAPORAN][FCM][ERROR]', error.message);
+  }
+}
+
+// Fungsi untuk pengecekan dan pengiriman via cron dengan deduplikasi agresif
+async function cekDanKirimNotifikasiTigaLaporanValid() {
+  // AGGRESIVE DEDUPLICATION - Global lock untuk mencegah multiple execution
+  if (isProcessing) {
+    console.log('[LAPORAN][CRON] AGGRESIVE LOCK: Another process is already running, skipping...');
+    return;
+  }
+  
+  isProcessing = true;
+  
+  try {
+    console.log('[LAPORAN][CRON] Memulai pengecekan notifikasi laporan...');
+    
+    // Hitung jumlah laporan valid hari ini
+    const result = await pool.query(
+      `SELECT COUNT(*) as total
+       FROM sigab_app.laporan
+       WHERE tipe_laporan = 'Banjir'
+       AND status = 'Valid'
+       AND DATE(waktu) = CURRENT_DATE`
+    );
+    const totalValid = parseInt(result.rows[0].total);
+
+    // AGGRESIVE DEDUPLICATION - Database level (4 jam window)
+    const notifCheck = await pool.query(
+      `SELECT 1 FROM sigab_app.notifikasi 
+       WHERE judul = 'Peringatan Laporan Banjir'
+       AND created_at >= NOW() - INTERVAL '4 hours'
+       LIMIT 1`,
+      []
+    );
+    if (notifCheck.rows.length > 0) {
+      console.log('[LAPORAN][CRON] AGGRESIVE DEDUP: Notifikasi laporan sudah pernah dikirim dalam 4 jam terakhir, skip.');
+      return;
+    }
+    
+    // AGGRESIVE DEDUPLICATION - Rate limiting per jam
+    const hourlyCheck = await pool.query(
+      `SELECT COUNT(*) as count FROM sigab_app.notifikasi 
+       WHERE judul = 'Peringatan Laporan Banjir'
+       AND created_at >= NOW() - INTERVAL '1 hour'`,
+      []
+    );
+    const hourlyCount = parseInt(hourlyCheck.rows[0].count);
+    if (hourlyCount >= 1) {
+      console.log(`[LAPORAN][CRON] AGGRESIVE RATE LIMIT: Sudah ada ${hourlyCount} notifikasi laporan dalam 1 jam terakhir, skip.`);
+      return;
+    }
+
+    // AGGRESIVE DEDUPLICATION - Add random delay untuk mencegah race condition
+    const randomDelay = Math.floor(Math.random() * 5000) + 1000; // 1-6 detik delay
+    console.log(`[LAPORAN][CRON] Adding random delay: ${randomDelay}ms to prevent race conditions`);
+    await new Promise(resolve => setTimeout(resolve, randomDelay));
+    
+    // Double check setelah delay
+    const finalCheck = await pool.query(
+      `SELECT 1 FROM sigab_app.notifikasi 
+       WHERE judul = 'Peringatan Laporan Banjir'
+       AND created_at >= NOW() - INTERVAL '1 hour'
+       LIMIT 1`,
+      []
+    );
+    if (finalCheck.rows.length > 0) {
+      console.log('[LAPORAN][CRON] FINAL CHECK: Notifikasi laporan sudah dikirim dalam 1 jam terakhir setelah delay, skip.');
+      return;
+    }
+
+    if (totalValid >= 3) {
+      await kirimNotifikasiTigaLaporanValid();
+      console.log('[CRON][LAPORAN] Notifikasi 3 laporan valid dikirim dengan deduplikasi agresif.');
+    } else {
+      console.log('[CRON][LAPORAN] Belum memenuhi syarat (3 laporan valid).');
+    }
+    
   } catch (error) {
     console.error('[LAPORAN][CRON][ERROR]', error.message);
   } finally {
     // Release lock
     isProcessing = false;
     console.log('[LAPORAN][CRON] Process completed, lock released');
-  }
-}
-
-// Fungsi untuk pengecekan dan pengiriman via cron
-async function cekDanKirimNotifikasiTigaLaporanValid() {
-  // Hitung jumlah laporan valid hari ini
-  const result = await pool.query(
-    `SELECT COUNT(*) as total
-     FROM sigab_app.laporan
-     WHERE tipe_laporan = 'Banjir'
-     AND status = 'Valid'
-     AND DATE(waktu) = CURRENT_DATE`
-  );
-  const totalValid = parseInt(result.rows[0].total);
-
-  // Cek apakah notifikasi sudah pernah dikirim hari ini
-  const notif = await pool.query(
-    `SELECT 1 FROM sigab_app.notifikasi
-     WHERE judul = $1
-     AND DATE(created_at) = CURRENT_DATE
-     LIMIT 1`,
-    ['Peringatan Laporan Banjir']
-  );
-
-  if (totalValid >= 3 && notif.rows.length === 0) {
-    await kirimNotifikasiTigaLaporanValid();
-    console.log('[CRON][LAPORAN] Notifikasi 3 laporan valid dikirim.');
-  } else {
-    console.log('[CRON][LAPORAN] Belum memenuhi syarat atau sudah dikirim.');
   }
 }
 
