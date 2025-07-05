@@ -118,7 +118,7 @@ async function kirimNotifikasiCuaca() {
   const cuaca = hujanForecast.weather_desc;
   const deskripsi = `Peringatan dini: ${cuaca} diperkirakan terjadi pada pukul ${jam} WIB.`;
 
-  // Cek manual sebelum insert
+  // Cek manual sebelum insert (cek judul dan pesan)
   const notifCheck = await pool.query(
     `SELECT 1 FROM sigab_app.notifikasi 
      WHERE judul = 'Peringatan Dini Cuaca'

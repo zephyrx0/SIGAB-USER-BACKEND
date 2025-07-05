@@ -21,6 +21,10 @@ exports.createReport = async (req, res) => {
       console.log('Using provided foto URL:', foto);
     } else {
       console.log('No foto provided');
+      return res.status(400).json({
+        status: 'error',
+        message: "Field 'foto' wajib diisi. Upload foto terlebih dahulu."
+      });
     }
 
     console.log('Received data:', {

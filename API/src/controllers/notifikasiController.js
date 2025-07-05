@@ -333,14 +333,14 @@ exports.triggerNotifikasiBanjir = async (req, res) => {
 };
 
 // Endpoint untuk trigger notifikasi peringatan cuaca secara manual
-exports.triggerNotifikasiCuaca = async (req, res) => {
-  try {
-    await kirimNotifikasiCuaca();
-    res.json({ status: 'success', message: 'Notifikasi cuaca dikirim' });
-  } catch (e) {
-    res.status(500).json({ status: 'error', message: e.message });
-  }
-};
+// exports.triggerNotifikasiCuaca = async (req, res) => {
+//   try {
+//     await kirimNotifikasiCuaca();
+//     res.json({ status: 'success', message: 'Notifikasi cuaca dikirim' });
+//   } catch (e) {
+//     res.status(500).json({ status: 'error', message: e.message });
+//   }
+// };
 
 exports.deleteLastNotifications = async (req, res) => {
   try {

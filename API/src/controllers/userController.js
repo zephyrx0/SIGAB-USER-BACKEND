@@ -225,10 +225,13 @@ exports.changeProfile = async (req, res) => {
       fieldsToUpdate.push(`nomor_wa = $${queryIndex++}`);
       values.push(formattedNomorWa);
     }
+    // Tambahkan updated_at secara eksplisit di akhir
+    fieldsToUpdate.push('updated_at = NOW()');
 
     values.push(id_user); // Untuk klausa WHERE
 
     const updateQuery = `UPDATE sigab_app."user_app" SET ${fieldsToUpdate.join(', ')} WHERE id_user = $${queryIndex} RETURNING id_user, nomor_wa, nama`;
+    console.log(updateQuery, values); // Debug log
 
     const result = await pool.query(updateQuery, values);
 
@@ -298,7 +301,7 @@ exports.changePassword = async (req, res) => {
     const hashedNewPassword = await bcrypt.hash(new_password, 10);
 
     await pool.query(
-      'UPDATE sigab_app."user_app" SET password = $1 WHERE id_user = $2',
+      'UPDATE sigab_app."user_app" SET password = $1, updated_at = NOW() WHERE id_user = $2',
       [hashedNewPassword, id_user]
     );
 
@@ -356,7 +359,7 @@ exports.requestResetPassword = async (req, res) => {
     
     // Simpan OTP ke database
     await pool.query(
-      'UPDATE sigab_app."user_app" SET reset_token = $1, reset_token_expires = $2 WHERE nomor_wa = $3',
+      'UPDATE sigab_app."user_app" SET reset_token = $1, reset_token_expires = $2, updated_at = NOW() WHERE nomor_wa = $3',
       [otp.toString(), otpExpiry, userWa]
     );
 
@@ -421,7 +424,7 @@ exports.resetPassword = async (req, res) => {
     
     // Update password dan hapus token reset
     await pool.query(
-      'UPDATE sigab_app."user_app" SET password = $1, reset_token = NULL, reset_token_expires = NULL WHERE nomor_wa = $2',
+      'UPDATE sigab_app."user_app" SET password = $1, reset_token = NULL, reset_token_expires = NULL, updated_at = NOW() WHERE nomor_wa = $2',
       [hashedPassword, formattedNomorWa]
     );
     
