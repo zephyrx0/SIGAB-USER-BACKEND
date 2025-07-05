@@ -472,34 +472,84 @@ async function sendFcmSmartCollapsible(title, body, data = {}) {
     console.error('[FCM SMART COLLAPSIBLE] Topic notification failed:', topicError.message);
   }
 
-  // 2. Kirim ke individual tokens dengan smart collapse key
+  // AGGRESIVE DEDUPLICATION - Database level check sebelum kirim individual
+  if (data.type === 'cuaca') {
+    const recentCheck = await pool.query(
+      `SELECT 1 FROM sigab_app.notifikasi 
+       WHERE judul = 'Peringatan Dini Cuaca'
+       AND created_at >= NOW() - INTERVAL '30 minutes'
+       LIMIT 1`,
+      []
+    );
+    if (recentCheck.rows.length > 0) {
+      console.log('[FCM SMART COLLAPSIBLE] AGGRESIVE DEDUP: Recent cuaca notification found, skipping individual sends');
+      return {
+        topicSuccess,
+        individualSuccess: 0,
+        individualFailed: 0,
+        invalidTokens: [],
+        notificationId
+      };
+    }
+  }
+
+  // 2. Kirim ke individual tokens dengan smart collapse key dan rate limiting
   const { rows } = await pool.query('SELECT token FROM sigab_app.fcm_tokens WHERE token IS NOT NULL');
   const tokens = rows.map(r => r.token);
 
-  for (const token of tokens) {
-    try {
-      // Add small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
-      // Smart collapse key berdasarkan type dan timestamp untuk grouping yang lebih baik
-      // Untuk notifikasi cuaca, gunakan collapse key yang lebih agresif (per jam)
-      let collapseKey;
-      if (data.type === 'cuaca') {
-        collapseKey = `cuaca_${Math.floor(Date.now() / (60 * 60 * 1000))}`; // Group per 1 jam untuk cuaca
+  // AGGRESIVE RATE LIMITING - Kirim maksimal 10 token per batch dengan delay
+  const batchSize = 10;
+  const delayBetweenBatches = 2000; // 2 detik delay antar batch
+  
+  for (let i = 0; i < tokens.length; i += batchSize) {
+    const batch = tokens.slice(i, i + batchSize);
+    
+    // Process batch secara parallel dengan delay
+    const batchPromises = batch.map(async (token, index) => {
+      try {
+        // Add small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100 + (index * 50)));
+        
+        // Smart collapse key berdasarkan type dan timestamp untuk grouping yang lebih baik
+        // Untuk notifikasi cuaca, gunakan collapse key yang lebih agresif (per jam)
+        let collapseKey;
+        if (data.type === 'cuaca') {
+          // Collapse key yang sangat agresif untuk cuaca - per jam dengan timestamp
+          const hour = Math.floor(Date.now() / (60 * 60 * 1000));
+          const day = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
+          collapseKey = `cuaca_${day}_${hour}`; // Group per jam untuk cuaca
+        } else {
+          // Collapse key yang lebih ketat untuk notifikasi lainnya - per 2 menit
+          collapseKey = `${data.type || 'general'}_${Math.floor(Date.now() / (2 * 60 * 1000))}`; // Group per 2 menit
+        }
+        
+        await sendFcmCollapsibleNotification(token, title, body, enhancedData, collapseKey);
+        return { token, status: 'success' };
+      } catch (error) {
+        if (error.message.includes('unregistered') || error.message.includes('not found')) {
+          invalidTokens.push(token);
+        }
+        
+        console.error(`[FCM SMART COLLAPSIBLE] Individual notification failed for token: ${token}`, error.message);
+        return { token, status: 'failed', error: error.message };
+      }
+    });
+    
+    const batchResults = await Promise.all(batchPromises);
+    
+    // Count successes and failures
+    batchResults.forEach(result => {
+      if (result.status === 'success') {
+        individualSuccess++;
       } else {
-        collapseKey = `${data.type || 'general'}_${Math.floor(Date.now() / (5 * 60 * 1000))}`; // Group per 5 menit untuk lainnya
+        individualFailed++;
       }
-      
-      await sendFcmCollapsibleNotification(token, title, body, enhancedData, collapseKey);
-      individualSuccess++;
-    } catch (error) {
-      individualFailed++;
-      
-      if (error.message.includes('unregistered') || error.message.includes('not found')) {
-        invalidTokens.push(token);
-      }
-      
-      console.error(`[FCM SMART COLLAPSIBLE] Individual notification failed for token: ${token}`, error.message);
+    });
+    
+    // Add delay between batches
+    if (i + batchSize < tokens.length) {
+      console.log(`[FCM SMART COLLAPSIBLE] Batch ${Math.floor(i/batchSize) + 1} completed, waiting ${delayBetweenBatches}ms before next batch...`);
+      await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
     }
   }
 
