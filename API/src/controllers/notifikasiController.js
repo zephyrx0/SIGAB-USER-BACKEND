@@ -17,7 +17,7 @@ cron.schedule('*/10 * * * * *', async () => {
   }
 });
 
-cron.schedule('*/10 * * * * *', async () => {
+cron.schedule('*/12 * * * * *', async () => {
   try {
     await cekDanKirimNotifikasiTigaLaporanValid();
     // Log akan muncul di dalam fungsi jika notifikasi benar-benar dikirim
@@ -27,7 +27,7 @@ cron.schedule('*/10 * * * * *', async () => {
 });
 
 // Scheduler: Notifikasi cuaca setiap 30 menit (diubah dari 10 detik)
-cron.schedule('*/10 * * * * *', async () => {
+cron.schedule('*/14 * * * * *', async () => {
   try {
     await kirimNotifikasiCuaca();
     // Log akan muncul di dalam fungsi jika notifikasi benar-benar dikirim
