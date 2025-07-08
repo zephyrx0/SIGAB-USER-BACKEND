@@ -3,7 +3,7 @@ const pool = require('../config/database');
 // Fungsi untuk mendapatkan semua riwayat banjir
 exports.getAllFloodHistory = async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM sigab_app."riwayat_banjir"');
+    const result = await pool.query('SELECT * FROM sigab_app."riwayat_banjir" ORDER BY waktu_kejadian DESC');
     res.status(200).json({
       status: 'success',
       data: result.rows
